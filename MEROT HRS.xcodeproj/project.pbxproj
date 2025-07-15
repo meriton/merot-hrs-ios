@@ -24,7 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A2EFA61C2E256BBC0017A5B7 /* MEROT HRS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MEROT HRS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2EFA61C2E256BBC0017A5B7 /* Merot HRS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Merot HRS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2EFA62A2E256BBD0017A5B7 /* MEROT HRSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "MEROT HRSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2EFA6342E256BBE0017A5B7 /* MEROT HRSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "MEROT HRSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -85,7 +85,7 @@
 		A2EFA61D2E256BBC0017A5B7 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A2EFA61C2E256BBC0017A5B7 /* MEROT HRS.app */,
+				A2EFA61C2E256BBC0017A5B7 /* Merot HRS.app */,
 				A2EFA62A2E256BBD0017A5B7 /* MEROT HRSTests.xctest */,
 				A2EFA6342E256BBE0017A5B7 /* MEROT HRSUITests.xctest */,
 			);
@@ -114,7 +114,7 @@
 			packageProductDependencies = (
 			);
 			productName = "MEROT HRS";
-			productReference = A2EFA61C2E256BBC0017A5B7 /* MEROT HRS.app */;
+			productReference = A2EFA61C2E256BBC0017A5B7 /* Merot HRS.app */;
 			productType = "com.apple.product-type.application";
 		};
 		A2EFA6292E256BBD0017A5B7 /* MEROT HRSTests */ = {
@@ -409,8 +409,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "merot.MEROT-HRS";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "merot.Merot-HRS-iospu";
+				PRODUCT_NAME = "Merot HRS";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
@@ -447,8 +447,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "merot.MEROT-HRS";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "merot.Merot-HRS-iospu";
+				PRODUCT_NAME = "Merot HRS";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";

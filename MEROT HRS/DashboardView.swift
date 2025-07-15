@@ -115,6 +115,13 @@ struct DashboardView: View {
                     Text("Invoices")
                 }
                 .tag(3)
+            
+            HolidaysView()
+                .tabItem {
+                    Image(systemName: "calendar.badge.clock")
+                    Text("Holidays")
+                }
+                .tag(4)
         }
         .onAppear {
             Task {

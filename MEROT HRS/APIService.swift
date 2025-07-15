@@ -311,6 +311,20 @@ class APIService: ObservableObject {
         return data
     }
     
+    // MARK: - Holiday Methods
+    func getHolidays() async throws -> HolidaysResponse {
+        let response: APIResponse<HolidaysResponse> = try await networkManager.get(
+            endpoint: "/holidays",
+            responseType: APIResponse<HolidaysResponse>.self
+        )
+        
+        if response.success {
+            return response.data
+        } else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+    }
+    
     // MARK: - Callback-based methods for compatibility
     func fetchEmployerProfile(completion: @escaping (Result<EmployerProfileData, Error>) -> Void) {
         Task {

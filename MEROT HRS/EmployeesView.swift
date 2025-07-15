@@ -102,8 +102,7 @@ struct EmployeesView: View {
                     }
                     .listStyle(PlainListStyle())
                     .refreshable {
-                        currentPage = 1
-                        await loadEmployees()
+                        await refreshEmployees()
                     }
                 }
             }
@@ -169,6 +168,27 @@ struct EmployeesView: View {
             )
             
             employees.append(contentsOf: response.employees)
+            totalPages = response.pagination.totalPages
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+    
+    private func refreshEmployees() async {
+        // Don't set isLoading = true for refresh to avoid UI conflicts
+        currentPage = 1
+        errorMessage = nil
+        
+        do {
+            let status = selectedStatus == "all" ? nil : selectedStatus
+            let response = try await apiService.getEmployees(
+                page: currentPage,
+                perPage: 20,
+                status: status,
+                search: searchText.isEmpty ? nil : searchText
+            )
+            
+            employees = response.employees
             totalPages = response.pagination.totalPages
         } catch {
             errorMessage = error.localizedDescription
@@ -248,7 +268,13 @@ struct EmployeeRow: View {
                     
                     Spacer()
                     
-                    StatusBadge(status: employee.status)
+                    HStack(spacing: 6) {
+                        StatusBadge(status: employee.status)
+                        
+                        if let onLeave = employee.onLeave, !onLeave.isEmpty {
+                            OnLeaveBadge()
+                        }
+                    }
                 }
                 
                 // Email
@@ -294,5 +320,18 @@ struct ErrorView: View {
                 .buttonStyle(MerotButtonStyle())
         }
         .padding()
+    }
+}
+
+struct OnLeaveBadge: View {
+    var body: some View {
+        Text("On Leave")
+            .font(.caption)
+            .fontWeight(.medium)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.blue.opacity(0.2))
+            .foregroundColor(.blue)
+            .cornerRadius(6)
     }
 }
