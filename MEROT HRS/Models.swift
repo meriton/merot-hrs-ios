@@ -165,11 +165,13 @@ struct TimeOffRequest: Codable, Identifiable {
     let approvalBy: String?
     
     enum CodingKeys: String, CodingKey {
-        case id, days, employee, createdAt, updatedAt
+        case id, days, employee
         case startDate = "start_date"
         case endDate = "end_date"
         case approvalStatus = "approval_status"
         case timeOffRecord = "time_off_record"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
         case approvedByUserId = "approved_by_user_id"
         case approverType = "approver_type"
         case approvalBy = "approval_by"
@@ -263,6 +265,14 @@ struct TimeOffRequestListData: Codable {
     enum CodingKeys: String, CodingKey {
         case timeOffRequests = "time_off_requests"
         case pagination
+    }
+}
+
+struct TimeOffRequestResponse: Codable {
+    let timeOffRequest: TimeOffRequest
+    
+    enum CodingKeys: String, CodingKey {
+        case timeOffRequest = "time_off_request"
     }
 }
 

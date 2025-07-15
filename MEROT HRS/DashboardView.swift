@@ -4,10 +4,12 @@ struct DashboardView: View {
     @EnvironmentObject var authService: AuthenticationService
     @StateObject private var apiService = APIService()
     @State private var dashboardData: DashboardData?
+    @State private var employerProfile: EmployerProfileData?
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showingProfile = false
     @State private var selectedTab = 0
+    @State private var employeeFilter: String? = nil
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -18,7 +20,7 @@ struct DashboardView: View {
                         ProgressView("Loading dashboard...")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if let dashboardData = dashboardData {
-                        DashboardStatsView(stats: dashboardData.stats)
+                        DashboardStatsView(stats: dashboardData.stats, selectedTab: $selectedTab, employeeFilter: $employeeFilter)
                         
                         RecentActivitiesView(activities: dashboardData.recentActivities)
                     } else if let errorMessage = errorMessage {
@@ -45,9 +47,22 @@ struct DashboardView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Dashboard")
+            .navigationTitle(employerProfile?.employer.name ?? "Dashboard")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    if let employerName = employerProfile?.employer.name {
+                        VStack(spacing: 0) {
+                            Text(employerName)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            Text("Dashboard")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
                         showingProfile = true
@@ -80,7 +95,7 @@ struct DashboardView: View {
             }
             .tag(0)
             
-            EmployeesView()
+            EmployeesView(filterFromDashboard: $employeeFilter)
                 .tabItem {
                     Image(systemName: "person.3")
                     Text("Employees")
@@ -104,6 +119,15 @@ struct DashboardView: View {
         .onAppear {
             Task {
                 await loadDashboard()
+                loadEmployerProfile()
+            }
+        }
+        .onChange(of: selectedTab) { newTab in
+            // Refresh dashboard data when returning to dashboard tab
+            if newTab == 0 {
+                Task {
+                    await loadDashboard()
+                }
             }
         }
     }
@@ -131,10 +155,25 @@ struct DashboardView: View {
         
         isLoading = false
     }
+    
+    private func loadEmployerProfile() {
+        APIService.shared.fetchEmployerProfile { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let profile):
+                    self.employerProfile = profile
+                case .failure(let error):
+                    print("Failed to load employer profile: \(error)")
+                }
+            }
+        }
+    }
 }
 
 struct DashboardStatsView: View {
     let stats: DashboardStats
+    @Binding var selectedTab: Int
+    @Binding var employeeFilter: String?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -150,28 +189,39 @@ struct DashboardStatsView: View {
                     value: "\(stats.totalEmployees)",
                     icon: "person.3",
                     color: .blue
-                )
+                ) {
+                    employeeFilter = "all"
+                    selectedTab = 1 // Navigate to Employees tab
+                }
                 
                 StatCard(
                     title: "Active Employees",
                     value: "\(stats.activeEmployees)",
                     icon: "person.badge.plus",
                     color: .green
-                )
+                ) {
+                    employeeFilter = "active"
+                    selectedTab = 1 // Navigate to Employees tab with active filter
+                }
                 
                 StatCard(
                     title: "Pending Requests",
                     value: "\(stats.pendingTimeOffRequests)",
                     icon: "clock.badge.exclamationmark",
                     color: .orange
-                )
+                ) {
+                    selectedTab = 2 // Navigate to Pending tab
+                }
                 
                 StatCard(
                     title: "On Leave Today",
                     value: "\(stats.employeesOnLeaveToday)",
                     icon: "calendar.badge.minus",
                     color: .purple
-                )
+                ) {
+                    employeeFilter = "all"
+                    selectedTab = 1 // Navigate to Employees tab
+                }
             }
         }
     }
@@ -182,26 +232,30 @@ struct StatCard: View {
     let value: String
     let icon: String
     let color: Color
+    let action: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                Spacer()
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: icon)
+                        .foregroundColor(color)
+                    Spacer()
+                }
+                
+                Text(value)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -242,7 +296,7 @@ struct ActivityRow: View {
                     .foregroundColor(.secondary)
                 
                 if let startDate = activity.startDate, let endDate = activity.endDate {
-                    Text("\(startDate) - \(endDate)")
+                    Text("\(formatDate(startDate)) - \(formatDate(endDate))")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -263,6 +317,28 @@ struct ActivityRow: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(8)
+    }
+    
+    private func formatDate(_ dateString: String) -> String {
+        let formatters = [
+            "yyyy-MM-dd'T'HH:mm:ssZ",      // ISO 8601 with timezone
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",  // ISO 8601 with milliseconds
+            "yyyy-MM-dd'T'HH:mm:ss",       // ISO 8601 without timezone
+            "yyyy-MM-dd"                   // Date only
+        ]
+        
+        for format in formatters {
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            
+            if let date = formatter.date(from: dateString) {
+                let displayFormatter = DateFormatter()
+                displayFormatter.dateFormat = "MMM d, yyyy"
+                return displayFormatter.string(from: date)
+            }
+        }
+        
+        return dateString
     }
 }
 
@@ -288,6 +364,8 @@ struct StatusBadge: View {
             return .green.opacity(0.2)
         case "denied":
             return .red.opacity(0.2)
+        case "active":
+            return .green.opacity(0.2)
         default:
             return .gray.opacity(0.2)
         }
@@ -301,6 +379,8 @@ struct StatusBadge: View {
             return .green
         case "denied":
             return .red
+        case "active":
+            return .green
         default:
             return .gray
         }

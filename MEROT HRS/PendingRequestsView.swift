@@ -42,8 +42,10 @@ struct PendingRequestsView: View {
                                     selectedRequest = request
                                 }
                             )
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                         }
                     }
+                    .listStyle(PlainListStyle())
                     .refreshable {
                         await loadPendingRequests()
                     }
@@ -127,129 +129,146 @@ struct PendingRequestRow: View {
     let onApprove: () async -> Void
     let onDeny: () async -> Void
     let onTap: () -> Void
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(request.employee.fullName)
-                        .font(.headline)
-                        .fontWeight(.medium)
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header row
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(request.employee.fullName)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        Text(request.employee.department)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                     
-                    Text(request.employee.department)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    Spacer()
                     
-                    Text("Employee ID: \(request.employee.employeeId)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("\(request.days) day\(request.days == 1 ? "" : "s")")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        StatusBadge(status: request.approvalStatus)
+                    }
                 }
                 
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    StatusBadge(status: request.approvalStatus)
-                    
-                    Text("\(request.days) day\(request.days == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Leave Period")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text("\(formattedDate(request.startDate)) - \(formattedDate(request.endDate))")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-                
-                Spacer()
-                
-                if let leaveType = request.timeOffRecord?.leaveType {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Type")
+                // Details row
+                HStack {
+                    Label {
+                        Text("\(formattedDate(request.startDate)) - \(formattedDate(request.endDate))")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        
-                        Text(leaveType.replacingOccurrences(of: "_", with: " ").capitalized)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                    } icon: {
+                        Image(systemName: "calendar")
+                            .foregroundColor(.secondary)
                     }
+                    
+                    Spacer()
+                    
+                    if let leaveType = request.timeOffRecord?.leaveType {
+                        Label {
+                            Text(leaveType.replacingOccurrences(of: "_", with: " ").capitalized)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } icon: {
+                            Image(systemName: "tag.fill")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                // Action buttons row
+                HStack(spacing: 6) {
+                    Button(action: {
+                        Task {
+                            await onApprove()
+                        }
+                    }) {
+                        HStack(spacing: 3) {
+                            if isProcessing {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                            } else {
+                                Image(systemName: "checkmark")
+                                    .font(.caption)
+                            }
+                            Text("Approve")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .disabled(isProcessing)
+                    
+                    Button(action: {
+                        Task {
+                            await onDeny()
+                        }
+                    }) {
+                        HStack(spacing: 3) {
+                            if isProcessing {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                            } else {
+                                Image(systemName: "xmark")
+                                    .font(.caption)
+                            }
+                            Text("Deny")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
+                    .disabled(isProcessing)
+                    
+                    Spacer()
                 }
             }
-            
-            HStack(spacing: 12) {
-                Button(action: {
-                    Task {
-                        await onApprove()
-                    }
-                }) {
-                    HStack {
-                        if isProcessing {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "checkmark")
-                        }
-                        Text("Approve")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(isProcessing)
-                
-                Button(action: {
-                    Task {
-                        await onDeny()
-                    }
-                }) {
-                    HStack {
-                        if isProcessing {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "xmark")
-                        }
-                        Text("Deny")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-                .disabled(isProcessing)
-                
-                Button(action: onTap) {
-                    HStack {
-                        Image(systemName: "info.circle")
-                        Text("Details")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(isProcessing)
-            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            )
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .buttonStyle(PlainButtonStyle())
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
     }
     
     private func formattedDate(_ dateString: String) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
         
         if let date = formatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
-            displayFormatter.dateStyle = .medium
+            displayFormatter.dateStyle = .long
+            displayFormatter.timeStyle = .none
             return displayFormatter.string(from: date)
         }
+        
+        // Try alternative format without milliseconds
+        let alternativeFormatter = DateFormatter()
+        alternativeFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        
+        if let date = alternativeFormatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .long
+            displayFormatter.timeStyle = .none
+            return displayFormatter.string(from: date)
+        }
+        
         return dateString
     }
 }
@@ -313,13 +332,26 @@ struct RequestDetailView: View {
     
     private func formattedDate(_ dateString: String) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
         
         if let date = formatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
-            displayFormatter.dateStyle = .full
+            displayFormatter.dateStyle = .long
+            displayFormatter.timeStyle = .none
             return displayFormatter.string(from: date)
         }
+        
+        // Try alternative format without milliseconds
+        let alternativeFormatter = DateFormatter()
+        alternativeFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        
+        if let date = alternativeFormatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .long
+            displayFormatter.timeStyle = .none
+            return displayFormatter.string(from: date)
+        }
+        
         return dateString
     }
 }

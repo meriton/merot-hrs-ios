@@ -40,6 +40,9 @@ struct InvoiceDetailView: View {
                                 
                                 // Payment Information
                                 PaymentInfoCard(invoice: detailedInvoice)
+                                
+                                // Total Summary at the bottom
+                                InvoiceTotalCard(invoice: detailedInvoice)
                             } else {
                                 // Show basic invoice data immediately while loading details
                                 BasicInvoiceHeaderCard(invoice: invoice)
@@ -54,6 +57,9 @@ struct InvoiceDetailView: View {
                                     }
                                     .padding()
                                 }
+                                
+                                // Basic Total Summary at the bottom
+                                BasicInvoiceTotalCard(invoice: invoice)
                             }
                         }
                         .padding()
@@ -237,25 +243,11 @@ struct BasicInvoiceHeaderCard: View {
                 InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue)
             }
             
-            HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    DetailRow(label: "Issue Date", value: formatDate(invoice.issue_date))
-                    DetailRow(label: "Due Date", value: formatDate(invoice.due_date))
-                    if let billingPeriod = invoice.billing_period_display {
-                        DetailRow(label: "Billing Period", value: billingPeriod)
-                    }
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Total Amount")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Text(String(format: "$%.2f", invoice.total_amount))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: 8) {
+                DetailRow(label: "Issue Date", value: formatDate(invoice.issue_date))
+                DetailRow(label: "Due Date", value: formatDate(invoice.due_date))
+                if let billingPeriod = invoice.billing_period_display {
+                    DetailRow(label: "Billing Period", value: billingPeriod)
                 }
             }
             
@@ -311,25 +303,11 @@ struct InvoiceHeaderCard: View {
                 InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue)
             }
             
-            HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    DetailRow(label: "Issue Date", value: formatDate(invoice.issue_date))
-                    DetailRow(label: "Due Date", value: formatDate(invoice.due_date))
-                    if let billingPeriod = invoice.billing_period_display {
-                        DetailRow(label: "Billing Period", value: billingPeriod)
-                    }
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Total Amount")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Text(String(format: "$%.2f", invoice.total_amount))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: 8) {
+                DetailRow(label: "Issue Date", value: formatDate(invoice.issue_date))
+                DetailRow(label: "Due Date", value: formatDate(invoice.due_date))
+                if let billingPeriod = invoice.billing_period_display {
+                    DetailRow(label: "Billing Period", value: billingPeriod)
                 }
             }
             
@@ -583,6 +561,146 @@ struct InvoiceLineItem: Codable {
     let employee_name: String?
     let employee_id: String?
     let service_date: String?
+}
+
+struct InvoiceTotalCard: View {
+    let invoice: DetailedInvoice
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Invoice Total")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.merotBlue)
+            
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Subtotal")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(String(format: "$%.2f", invoice.subtotal))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                
+                if invoice.tax_amount > 0 {
+                    HStack {
+                        Text("Tax")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "$%.2f", invoice.tax_amount))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                }
+                
+                if invoice.discount_amount > 0 {
+                    HStack {
+                        Text("Discount")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "-$%.2f", invoice.discount_amount))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.green)
+                    }
+                }
+                
+                if invoice.late_fee > 0 {
+                    HStack {
+                        Text("Late Fee")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "$%.2f", invoice.late_fee))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.red)
+                    }
+                }
+                
+                Divider()
+                
+                HStack {
+                    Text("Total Amount")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    Spacer()
+                    Text(String(format: "$%.2f", invoice.total_amount))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.merotBlue)
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
+}
+
+struct BasicInvoiceTotalCard: View {
+    let invoice: Invoice
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Invoice Total")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.merotBlue)
+            
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Subtotal")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(String(format: "$%.2f", invoice.subtotal))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                
+                if invoice.tax_amount > 0 {
+                    HStack {
+                        Text("Tax")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "$%.2f", invoice.tax_amount))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                }
+                
+                Divider()
+                
+                HStack {
+                    Text("Total Amount")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    Spacer()
+                    Text(String(format: "$%.2f", invoice.total_amount))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.merotBlue)
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
 }
 
 #Preview {

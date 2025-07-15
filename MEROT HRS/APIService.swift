@@ -159,32 +159,32 @@ class APIService: ObservableObject {
     
     func approveTimeOffRequest(id: Int) async throws -> TimeOffRequest {
         let emptyBody: [String: String] = [:]
-        let response: APIResponse<TimeOffRequest> = try await networkManager.put(
+        let response: APIResponse<TimeOffRequestResponse> = try await networkManager.put(
             endpoint: "/time_off_requests/\(id)/approve",
             body: emptyBody,
-            responseType: APIResponse<TimeOffRequest>.self
+            responseType: APIResponse<TimeOffRequestResponse>.self
         )
         
         guard response.success else {
             throw NetworkManager.NetworkError.serverError(response.message)
         }
         
-        return response.data
+        return response.data.timeOffRequest
     }
     
     func denyTimeOffRequest(id: Int) async throws -> TimeOffRequest {
         let emptyBody: [String: String] = [:]
-        let response: APIResponse<TimeOffRequest> = try await networkManager.put(
+        let response: APIResponse<TimeOffRequestResponse> = try await networkManager.put(
             endpoint: "/time_off_requests/\(id)/deny",
             body: emptyBody,
-            responseType: APIResponse<TimeOffRequest>.self
+            responseType: APIResponse<TimeOffRequestResponse>.self
         )
         
         guard response.success else {
             throw NetworkManager.NetworkError.serverError(response.message)
         }
         
-        return response.data
+        return response.data.timeOffRequest
     }
     
     func getTimeOffStats() async throws -> TimeOffStats {

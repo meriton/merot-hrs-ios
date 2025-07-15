@@ -11,6 +11,12 @@ struct EmployeesView: View {
     @State private var totalPages = 1
     @State private var selectedEmployee: Employee?
     
+    @Binding var filterFromDashboard: String?
+    
+    init(filterFromDashboard: Binding<String?> = .constant(nil)) {
+        self._filterFromDashboard = filterFromDashboard
+    }
+    
     private let statusOptions = ["all", "active", "terminated", "pending"]
     
     var filteredEmployees: [Employee] {
@@ -112,6 +118,17 @@ struct EmployeesView: View {
                 await loadEmployees()
             }
         }
+        .onChange(of: filterFromDashboard) { newFilter in
+            if let newFilter = newFilter, statusOptions.contains(newFilter) {
+                selectedStatus = newFilter
+                currentPage = 1
+                Task {
+                    await loadEmployees()
+                }
+                // Reset the filter after using it
+                filterFromDashboard = nil
+            }
+        }
     }
     
     private func loadEmployees() async {
@@ -210,19 +227,20 @@ struct EmployeeRow: View {
     let employee: Employee
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             // Avatar
             Circle()
                 .fill(Color.merotBlue.opacity(0.2))
-                .frame(width: 50, height: 50)
+                .frame(width: 44, height: 44)
                 .overlay(
                     Text(employee.fullName.prefix(2).uppercased())
-                        .font(.subheadline)
+                        .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.merotBlue)
                 )
             
             VStack(alignment: .leading, spacing: 4) {
+                // Name and status row
                 HStack {
                     Text(employee.fullName)
                         .font(.headline)
@@ -233,39 +251,16 @@ struct EmployeeRow: View {
                     StatusBadge(status: employee.status)
                 }
                 
+                // Email
                 Text(employee.email)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
-                HStack {
-                    if let employeeId = employee.employeeId {
-                        Text("ID: \(employeeId)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if let department = employee.department {
-                        Text("• \(department)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    if let employment = employee.employment {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            if let position = employment.employmentPosition {
-                                Text(position)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                            }
-                            if let salary = employment.grossSalaryDouble {
-                                Text("$\(Int(salary))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
+                // Employee ID
+                if let employeeId = employee.employeeId {
+                    Text("ID: \(employeeId)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             
