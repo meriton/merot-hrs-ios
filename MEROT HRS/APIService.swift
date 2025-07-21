@@ -18,9 +18,9 @@ class APIService: ObservableObject {
     }
     
     func getEmployerProfile() async throws -> Employer {
-        let response: APIResponse<UserProfileWrapper> = try await networkManager.get(
+        let response: APIResponse<UserProfileWrapperForAPI> = try await networkManager.get(
             endpoint: "/employers/profile",
-            responseType: APIResponse<UserProfileWrapper>.self
+            responseType: APIResponse<UserProfileWrapperForAPI>.self
         )
         
         guard response.success else {
@@ -344,9 +344,160 @@ class APIService: ObservableObject {
             }
         }
     }
+    
+    // MARK: - Job Postings Methods
+    func getJobPostings(
+        page: Int = 1,
+        perPage: Int = 20,
+        search: String? = nil,
+        location: String? = nil,
+        employmentType: String? = nil,
+        experienceLevel: String? = nil,
+        department: String? = nil
+    ) async throws -> JobPostingsResponse {
+        var endpoint = "/job_postings?page=\(page)&per_page=\(perPage)"
+        
+        if let search = search, !search.isEmpty {
+            endpoint += "&search=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+        
+        if let location = location, !location.isEmpty {
+            endpoint += "&location=\(location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+        
+        if let employmentType = employmentType, !employmentType.isEmpty {
+            endpoint += "&employment_type=\(employmentType)"
+        }
+        
+        if let experienceLevel = experienceLevel, !experienceLevel.isEmpty {
+            endpoint += "&experience_level=\(experienceLevel)"
+        }
+        
+        if let department = department, !department.isEmpty {
+            endpoint += "&department=\(department.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+        
+        let response: APIResponse<JobPostingsResponse> = try await networkManager.get(
+            endpoint: "/admin\(endpoint)",
+            responseType: APIResponse<JobPostingsResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data
+    }
+    
+    func getJobPosting(id: Int) async throws -> JobPosting {
+        let response: APIResponse<JobPostingDetailResponse> = try await networkManager.get(
+            endpoint: "/admin/job_postings/\(id)",
+            responseType: APIResponse<JobPostingDetailResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data.jobPosting
+    }
+    
+    // MARK: - Admin API Methods
+    
+    func getAdminDashboard() async throws -> AdminDashboardData {
+        let response: APIResponse<AdminDashboardResponse> = try await networkManager.get(
+            endpoint: "/admin/dashboard",
+            responseType: APIResponse<AdminDashboardResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return AdminDashboardData(
+            stats: response.data.stats,
+            recentEmployers: response.data.recentEmployers ?? [],
+            systemAlerts: response.data.systemAlerts ?? []
+        )
+    }
+
+    func getAdminStats() async throws -> AdminStats {
+        let dashboardData = try await getAdminDashboard()
+        return dashboardData.stats
+    }
+    
+    func getAllEmployers(page: Int = 1, perPage: Int = 20, search: String? = nil) async throws -> AdminEmployersResponse {
+        var endpoint = "/admin/employers?page=\(page)&per_page=\(perPage)"
+        
+        if let search = search, !search.isEmpty {
+            endpoint += "&search=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+        
+        let response: APIResponse<AdminEmployersResponse> = try await networkManager.get(
+            endpoint: endpoint,
+            responseType: APIResponse<AdminEmployersResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data
+    }
+    
+    func getAllEmployees(page: Int = 1, perPage: Int = 20, search: String? = nil) async throws -> AdminEmployeesResponse {
+        var endpoint = "/admin/employees?page=\(page)&per_page=\(perPage)"
+        
+        if let search = search, !search.isEmpty {
+            endpoint += "&search=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+        
+        let response: APIResponse<AdminEmployeesResponse> = try await networkManager.get(
+            endpoint: endpoint,
+            responseType: APIResponse<AdminEmployeesResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data
+    }
 }
 
-// MARK: - Invoice Response Types
+// MARK: - Response Types
 struct InvoiceDetailResponse: Codable {
     let invoice: DetailedInvoice
+}
+
+struct JobPostingDetailResponse: Codable {
+    let jobPosting: JobPosting
+    
+    enum CodingKeys: String, CodingKey {
+        case jobPosting = "job_posting"
+    }
+}
+
+struct AdminDashboardResponse: Codable {
+    let stats: AdminStats
+    let recentEmployers: [RecentEmployer]?
+    let systemAlerts: [SystemAlert]?
+    
+    enum CodingKeys: String, CodingKey {
+        case stats
+        case recentEmployers = "recent_employers"
+        case systemAlerts = "system_alerts"
+    }
+}
+
+
+
+struct AdminEmployersResponse: Codable {
+    let employers: [Employer]
+    let pagination: PaginationInfo
+}
+
+struct AdminEmployeesResponse: Codable {
+    let employees: [Employee]
+    let pagination: PaginationInfo
 }

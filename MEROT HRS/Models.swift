@@ -33,14 +33,23 @@ struct User: Codable, Identifiable {
     let email: String
     let userType: String
     let employer: Employer?
+    let fullName: String?
+    let roles: [String]?
+    let superAdmin: Bool?
     
     enum CodingKeys: String, CodingKey {
-        case id, email, employer
+        case id, email, employer, roles
         case userType = "user_type"
+        case fullName = "full_name"
+        case superAdmin = "super_admin"
     }
 }
 
 struct UserProfileWrapper: Decodable {
+    let user: User
+}
+
+struct UserProfileWrapperForAPI: Decodable {
     let user: UserProfileForAPI
 }
 
@@ -58,6 +67,8 @@ struct Employer: Codable, Identifiable {
     let primaryEmail: String?
     let billingEmail: String?
     let contactEmail: String?
+    let createdAt: Date?
+    let updatedAt: Date?
     
     enum CodingKeys: String, CodingKey {
         case id, name
@@ -65,6 +76,8 @@ struct Employer: Codable, Identifiable {
         case primaryEmail = "primary_email"
         case billingEmail = "billing_email"
         case contactEmail = "contact_email"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
 
@@ -397,5 +410,214 @@ struct HolidayPeriod: Codable {
     enum CodingKeys: String, CodingKey {
         case startDate = "start_date"
         case endDate = "end_date"
+    }
+}
+
+// MARK: - Job Posting Models
+
+struct JobPosting: Codable, Identifiable {
+    let id: Int
+    let title: String
+    let description: String
+    let department: String?
+    let location: String?
+    let employmentType: String?
+    let experienceLevel: String?
+    let salaryMin: Double?
+    let salaryMax: Double?
+    let salaryCurrency: String?
+    let salaryPeriod: String?
+    let publishedAt: String
+    let expiresAt: String?
+    let employer: JobPostingEmployer
+    let positionsAvailable: Int
+    let positionsFilled: Int
+    let requirements: String?
+    let benefits: String?
+    let viewsCount: Int?
+    let applicationsCount: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, description, department, location, requirements, benefits, employer
+        case employmentType = "employment_type"
+        case experienceLevel = "experience_level"
+        case salaryMin = "salary_min"
+        case salaryMax = "salary_max"
+        case salaryCurrency = "salary_currency"
+        case salaryPeriod = "salary_period"
+        case publishedAt = "published_at"
+        case expiresAt = "expires_at"
+        case positionsAvailable = "positions_available"
+        case positionsFilled = "positions_filled"
+        case viewsCount = "views_count"
+        case applicationsCount = "applications_count"
+    }
+    
+    // Memberwise initializer for creating instances programmatically
+    init(id: Int, title: String, description: String, department: String? = nil, location: String? = nil, employmentType: String? = nil, experienceLevel: String? = nil, salaryMin: Double? = nil, salaryMax: Double? = nil, salaryCurrency: String? = nil, salaryPeriod: String? = nil, publishedAt: String, expiresAt: String? = nil, employer: JobPostingEmployer, positionsAvailable: Int, positionsFilled: Int, requirements: String? = nil, benefits: String? = nil, viewsCount: Int? = nil, applicationsCount: Int? = nil) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.department = department
+        self.location = location
+        self.employmentType = employmentType
+        self.experienceLevel = experienceLevel
+        self.salaryMin = salaryMin
+        self.salaryMax = salaryMax
+        self.salaryCurrency = salaryCurrency
+        self.salaryPeriod = salaryPeriod
+        self.publishedAt = publishedAt
+        self.expiresAt = expiresAt
+        self.employer = employer
+        self.positionsAvailable = positionsAvailable
+        self.positionsFilled = positionsFilled
+        self.requirements = requirements
+        self.benefits = benefits
+        self.viewsCount = viewsCount
+        self.applicationsCount = applicationsCount
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decode(String.self, forKey: .description)
+        department = try container.decodeIfPresent(String.self, forKey: .department)
+        location = try container.decodeIfPresent(String.self, forKey: .location)
+        employmentType = try container.decodeIfPresent(String.self, forKey: .employmentType)
+        experienceLevel = try container.decodeIfPresent(String.self, forKey: .experienceLevel)
+        salaryCurrency = try container.decodeIfPresent(String.self, forKey: .salaryCurrency)
+        salaryPeriod = try container.decodeIfPresent(String.self, forKey: .salaryPeriod)
+        publishedAt = try container.decode(String.self, forKey: .publishedAt)
+        expiresAt = try container.decodeIfPresent(String.self, forKey: .expiresAt)
+        employer = try container.decode(JobPostingEmployer.self, forKey: .employer)
+        positionsAvailable = try container.decode(Int.self, forKey: .positionsAvailable)
+        positionsFilled = try container.decode(Int.self, forKey: .positionsFilled)
+        requirements = try container.decodeIfPresent(String.self, forKey: .requirements)
+        benefits = try container.decodeIfPresent(String.self, forKey: .benefits)
+        viewsCount = try container.decodeIfPresent(Int.self, forKey: .viewsCount)
+        applicationsCount = try container.decodeIfPresent(Int.self, forKey: .applicationsCount)
+        
+        // Handle salary fields that might be strings or doubles
+        if let salaryMinString = try container.decodeIfPresent(String.self, forKey: .salaryMin) {
+            salaryMin = Double(salaryMinString)
+        } else {
+            salaryMin = try container.decodeIfPresent(Double.self, forKey: .salaryMin)
+        }
+        
+        if let salaryMaxString = try container.decodeIfPresent(String.self, forKey: .salaryMax) {
+            salaryMax = Double(salaryMaxString)
+        } else {
+            salaryMax = try container.decodeIfPresent(Double.self, forKey: .salaryMax)
+        }
+    }
+}
+
+struct JobPostingEmployer: Codable {
+    let id: Int
+    let name: String
+    let location: String?
+}
+
+struct JobPostingsResponse: Codable {
+    let jobPostings: [JobPosting]
+    let pagination: PaginationInfo
+    let filters: JobPostingFilters?
+    
+    enum CodingKeys: String, CodingKey {
+        case jobPostings = "job_postings"
+        case pagination, filters
+    }
+}
+
+struct JobPostingFilters: Codable {
+    let employmentTypes: [String]
+    let experienceLevels: [String]
+    let locations: [String]
+    let departments: [String]
+    
+    enum CodingKeys: String, CodingKey {
+        case employmentTypes = "employment_types"
+        case experienceLevels = "experience_levels"
+        case locations, departments
+    }
+}
+
+struct AdminDashboardData: Codable {
+    let stats: AdminStats
+    let recentEmployers: [RecentEmployer]
+    let systemAlerts: [SystemAlert]
+    
+    enum CodingKeys: String, CodingKey {
+        case stats
+        case recentEmployers = "recent_employers"
+        case systemAlerts = "system_alerts"
+    }
+}
+
+struct AdminStats: Codable {
+    let totalEmployers: Int
+    let activeEmployees: Int
+    let activeInvoices: Int?
+    let monthlyRevenue: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case totalEmployers = "total_employers"
+        case totalEmployees = "total_employees"
+        case activeEmployees = "active_employees"
+        case activeInvoices = "active_invoices"
+        case monthlyRevenue = "monthly_revenue"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        totalEmployers = try container.decode(Int.self, forKey: .totalEmployers)
+        activeInvoices = try container.decodeIfPresent(Int.self, forKey: .activeInvoices)
+        monthlyRevenue = try container.decodeIfPresent(Double.self, forKey: .monthlyRevenue)
+        
+        // Handle both field names for backward compatibility
+        if let activeEmployeesCount = try container.decodeIfPresent(Int.self, forKey: .activeEmployees) {
+            activeEmployees = activeEmployeesCount
+        } else if let totalEmployeesCount = try container.decodeIfPresent(Int.self, forKey: .totalEmployees) {
+            activeEmployees = totalEmployeesCount
+        } else {
+            activeEmployees = 0
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(totalEmployers, forKey: .totalEmployers)
+        try container.encode(activeEmployees, forKey: .activeEmployees)
+        try container.encodeIfPresent(activeInvoices, forKey: .activeInvoices)
+        try container.encodeIfPresent(monthlyRevenue, forKey: .monthlyRevenue)
+    }
+}
+
+struct RecentEmployer: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let employeeCount: Int
+    let status: String
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, status
+        case employeeCount = "employee_count"
+        case createdAt = "created_at"
+    }
+}
+
+struct SystemAlert: Codable, Identifiable {
+    let id: Int
+    let type: String
+    let message: String
+    let timestamp: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, type, message
+        case timestamp
     }
 }

@@ -114,13 +114,13 @@ class AuthenticationService: ObservableObject {
         errorMessage = nil
         
         do {
-            let response: APIResponse<User> = try await networkManager.get(
+            let response: APIResponse<UserProfileWrapper> = try await networkManager.get(
                 endpoint: "/auth/profile",
-                responseType: APIResponse<User>.self
+                responseType: APIResponse<UserProfileWrapper>.self
             )
             
             if response.success {
-                currentUser = response.data
+                currentUser = response.data.user
             } else {
                 errorMessage = response.message
             }

@@ -6,6 +6,7 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showingAlert = false
+    @State private var userType = "employer"
     
     var body: some View {
         NavigationView {
@@ -33,7 +34,7 @@ struct LoginView: View {
                             )
                     )
                 
-                Text("Employer Dashboard")
+                Text(userType == "admin" ? "Admin Dashboard" : "Employer Dashboard")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
@@ -41,6 +42,18 @@ struct LoginView: View {
                 
                 VStack(spacing: 20) {
                     VStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("User Type")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            Picker("User Type", selection: $userType) {
+                                Text("Employer").tag("employer")
+                                Text("Admin").tag("admin")
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                        }
+                        
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Email")
                                 .font(.subheadline)
@@ -65,7 +78,7 @@ struct LoginView: View {
                     
                     Button(action: {
                         Task {
-                            await authService.login(email: email, password: password)
+                            await authService.login(email: email, password: password, userType: userType)
                         }
                     }) {
                         HStack {
