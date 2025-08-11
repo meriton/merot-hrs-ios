@@ -88,29 +88,49 @@ struct Employee: Codable, Identifiable {
     let firstName: String?
     let lastName: String?
     let email: String
+    let phoneNumber: String?
+    let personalEmail: String?
     let department: String?
     let status: String
     let onLeave: String?
     let employeeType: String?
-    let country: String?
     let title: String?
     let location: String?
-    let phone: String?
+    let address: String?
+    let city: String?
+    let country: String?
+    let postcode: String?
+    let managerId: String?
+    let personalIdNumber: String?
+    let fullNameCyr: String?
+    let cityCyr: String?
+    let addressCyr: String?
+    let countryCyr: String?
     let createdAt: Date
+    let updatedAt: Date?
     let employment: Employment?
     let salaryDetail: SalaryDetail?
+    let employers: [EmployerInfo]?
     
     enum CodingKeys: String, CodingKey {
-        case id, email, department, status, title, location, phone, employment
+        case id, email, department, status, title, location, employment, address, city, country, postcode, employers
         case employeeId = "employee_id"
         case fullName = "full_name"
         case firstName = "first_name"
         case lastName = "last_name"
+        case phoneNumber = "phone_number"
+        case personalEmail = "personal_email"
         case onLeave = "on_leave"
         case employeeType = "employee_type"
+        case managerId = "manager_id"
+        case personalIdNumber = "personal_id_number"
+        case fullNameCyr = "full_name_cyr"
+        case cityCyr = "city_cyr"
+        case addressCyr = "address_cyr"
+        case countryCyr = "country_cyr"
         case createdAt = "created_at"
+        case updatedAt = "updated_at"
         case salaryDetail = "salary_detail"
-        case country
     }
     
     init(from decoder: Decoder) throws {
@@ -122,23 +142,60 @@ struct Employee: Codable, Identifiable {
         firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
         lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
         email = try container.decode(String.self, forKey: .email)
+        phoneNumber = try container.decodeIfPresent(String.self, forKey: .phoneNumber)
+        personalEmail = try container.decodeIfPresent(String.self, forKey: .personalEmail)
         department = try container.decodeIfPresent(String.self, forKey: .department)
         status = try container.decode(String.self, forKey: .status)
         onLeave = try container.decodeIfPresent(String.self, forKey: .onLeave)
         employeeType = try container.decodeIfPresent(String.self, forKey: .employeeType)
-        country = try container.decodeIfPresent(String.self, forKey: .country)
         title = try container.decodeIfPresent(String.self, forKey: .title)
         location = try container.decodeIfPresent(String.self, forKey: .location)
-        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        address = try container.decodeIfPresent(String.self, forKey: .address)
+        city = try container.decodeIfPresent(String.self, forKey: .city)
+        country = try container.decodeIfPresent(String.self, forKey: .country)
+        postcode = try container.decodeIfPresent(String.self, forKey: .postcode)
+        managerId = try container.decodeIfPresent(String.self, forKey: .managerId)
+        personalIdNumber = try container.decodeIfPresent(String.self, forKey: .personalIdNumber)
+        fullNameCyr = try container.decodeIfPresent(String.self, forKey: .fullNameCyr)
+        cityCyr = try container.decodeIfPresent(String.self, forKey: .cityCyr)
+        addressCyr = try container.decodeIfPresent(String.self, forKey: .addressCyr)
+        countryCyr = try container.decodeIfPresent(String.self, forKey: .countryCyr)
         employment = try container.decodeIfPresent(Employment.self, forKey: .employment)
         salaryDetail = try container.decodeIfPresent(SalaryDetail.self, forKey: .salaryDetail)
+        employers = try container.decodeIfPresent([EmployerInfo].self, forKey: .employers)
         
         // Handle date decoding
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        let dateString = try container.decode(String.self, forKey: .createdAt)
-        createdAt = dateFormatter.date(from: dateString) ?? Date()
+        let createdAtString = try container.decode(String.self, forKey: .createdAt)
+        let updatedAtString = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+        
+        // Use DateFormatter for more flexible parsing
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        
+        if let date = formatter.date(from: createdAtString) {
+            createdAt = date
+        } else {
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            createdAt = formatter.date(from: createdAtString) ?? Date()
+        }
+        
+        if let updatedAtString = updatedAtString {
+            if let date = formatter.date(from: updatedAtString) {
+                updatedAt = date
+            } else {
+                formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+                updatedAt = formatter.date(from: updatedAtString)
+            }
+        } else {
+            updatedAt = nil
+        }
     }
+}
+
+struct EmployerInfo: Codable, Identifiable {
+    let id: Int
+    let name: String
 }
 
 struct Employment: Codable, Identifiable {
@@ -174,21 +231,111 @@ struct Employment: Codable, Identifiable {
 struct SalaryDetail: Codable, Identifiable {
     let id: Int
     let baseSalary: Double?
+    let hourlySalary: Double?
+    let variableSalary: Double?
+    let deductions: Double?
     let grossSalary: Double?
     let netSalary: Double?
     let seniority: Double?
     let onMaternity: Bool?
     let bankName: String?
     let bankAccountNumber: String?
+    let createdAt: Date?
+    let updatedAt: Date?
     
     enum CodingKeys: String, CodingKey {
         case id, seniority
         case baseSalary = "base_salary"
+        case hourlySalary = "hourly_salary"
+        case variableSalary = "variable_salary"
+        case deductions = "deductions"
         case grossSalary = "gross_salary"
         case netSalary = "net_salary"
         case onMaternity = "on_maternity"
         case bankName = "bank_name"
         case bankAccountNumber = "bank_account_number"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        
+        // Handle salary fields that might be strings or doubles
+        if let baseSalaryString = try? container.decodeIfPresent(String.self, forKey: .baseSalary) {
+            baseSalary = Double(baseSalaryString)
+        } else {
+            baseSalary = try container.decodeIfPresent(Double.self, forKey: .baseSalary)
+        }
+        
+        if let hourlySalaryString = try? container.decodeIfPresent(String.self, forKey: .hourlySalary) {
+            hourlySalary = Double(hourlySalaryString)
+        } else {
+            hourlySalary = try container.decodeIfPresent(Double.self, forKey: .hourlySalary)
+        }
+        
+        if let variableSalaryString = try? container.decodeIfPresent(String.self, forKey: .variableSalary) {
+            variableSalary = Double(variableSalaryString)
+        } else {
+            variableSalary = try container.decodeIfPresent(Double.self, forKey: .variableSalary)
+        }
+        
+        if let deductionsString = try? container.decodeIfPresent(String.self, forKey: .deductions) {
+            deductions = Double(deductionsString)
+        } else {
+            deductions = try container.decodeIfPresent(Double.self, forKey: .deductions)
+        }
+        
+        if let grossSalaryString = try? container.decodeIfPresent(String.self, forKey: .grossSalary) {
+            grossSalary = Double(grossSalaryString)
+        } else {
+            grossSalary = try container.decodeIfPresent(Double.self, forKey: .grossSalary)
+        }
+        
+        if let netSalaryString = try? container.decodeIfPresent(String.self, forKey: .netSalary) {
+            netSalary = Double(netSalaryString)
+        } else {
+            netSalary = try container.decodeIfPresent(Double.self, forKey: .netSalary)
+        }
+        
+        if let seniorityString = try? container.decodeIfPresent(String.self, forKey: .seniority) {
+            seniority = Double(seniorityString)
+        } else {
+            seniority = try container.decodeIfPresent(Double.self, forKey: .seniority)
+        }
+        onMaternity = try container.decodeIfPresent(Bool.self, forKey: .onMaternity)
+        bankName = try container.decodeIfPresent(String.self, forKey: .bankName)
+        bankAccountNumber = try container.decodeIfPresent(String.self, forKey: .bankAccountNumber)
+        
+        // Handle date decoding
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        if let createdAtString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
+            if let date = formatter.date(from: createdAtString) {
+                createdAt = date
+            } else {
+                // Try without fractional seconds
+                formatter.formatOptions = [.withInternetDateTime]
+                createdAt = formatter.date(from: createdAtString)
+            }
+        } else {
+            createdAt = nil
+        }
+        
+        if let updatedAtString = try container.decodeIfPresent(String.self, forKey: .updatedAt) {
+            if let date = formatter.date(from: updatedAtString) {
+                updatedAt = date
+            } else {
+                // Try without fractional seconds
+                formatter.formatOptions = [.withInternetDateTime]
+                updatedAt = formatter.date(from: updatedAtString)
+            }
+        } else {
+            updatedAt = nil
+        }
     }
 }
 
@@ -608,6 +755,51 @@ struct RecentEmployer: Codable, Identifiable {
         case employeeCount = "employee_count"
         case createdAt = "created_at"
     }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        employeeCount = try container.decode(Int.self, forKey: .employeeCount)
+        status = try container.decode(String.self, forKey: .status)
+        
+        // Handle createdAt with custom date parsing for better error handling
+        if let createdAtString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
+            print("RecentEmployer: Attempting to parse date string: \(createdAtString)")
+            
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            
+            if let date = formatter.date(from: createdAtString) {
+                createdAt = date
+                print("RecentEmployer: Successfully parsed date with fractional seconds")
+            } else {
+                // Fallback to a simpler ISO8601 format
+                formatter.formatOptions = [.withInternetDateTime]
+                if let date = formatter.date(from: createdAtString) {
+                    createdAt = date
+                    print("RecentEmployer: Successfully parsed date without fractional seconds")
+                } else {
+                    // Try basic date formats as fallbacks
+                    let basicFormatter = DateFormatter()
+                    basicFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+                    if let date = basicFormatter.date(from: createdAtString) {
+                        createdAt = date
+                        print("RecentEmployer: Successfully parsed date with basic formatter")
+                    } else {
+                        // Last resort: use current date to prevent crash
+                        print("RecentEmployer: Failed to parse date '\(createdAtString)', using current date")
+                        createdAt = Date()
+                    }
+                }
+            }
+        } else {
+            // If createdAt is missing, use current date to prevent crash
+            print("RecentEmployer: createdAt field missing, using current date")
+            createdAt = Date()
+        }
+    }
 }
 
 struct SystemAlert: Codable, Identifiable {
@@ -619,5 +811,49 @@ struct SystemAlert: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, type, message
         case timestamp
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        type = try container.decode(String.self, forKey: .type)
+        message = try container.decode(String.self, forKey: .message)
+        
+        // Handle timestamp with custom date parsing for better error handling
+        if let timestampString = try container.decodeIfPresent(String.self, forKey: .timestamp) {
+            print("SystemAlert: Attempting to parse timestamp string: \(timestampString)")
+            
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            
+            if let date = formatter.date(from: timestampString) {
+                timestamp = date
+                print("SystemAlert: Successfully parsed timestamp with fractional seconds")
+            } else {
+                // Fallback to a simpler ISO8601 format
+                formatter.formatOptions = [.withInternetDateTime]
+                if let date = formatter.date(from: timestampString) {
+                    timestamp = date
+                    print("SystemAlert: Successfully parsed timestamp without fractional seconds")
+                } else {
+                    // Try basic date formats as fallbacks
+                    let basicFormatter = DateFormatter()
+                    basicFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+                    if let date = basicFormatter.date(from: timestampString) {
+                        timestamp = date
+                        print("SystemAlert: Successfully parsed timestamp with basic formatter")
+                    } else {
+                        // Last resort: use current date to prevent crash
+                        print("SystemAlert: Failed to parse timestamp '\(timestampString)', using current date")
+                        timestamp = Date()
+                    }
+                }
+            }
+        } else {
+            // If timestamp is missing, use current date to prevent crash
+            print("SystemAlert: timestamp field missing, using current date")
+            timestamp = Date()
+        }
     }
 }

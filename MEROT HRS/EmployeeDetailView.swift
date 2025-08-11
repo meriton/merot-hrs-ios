@@ -59,7 +59,7 @@ struct EmployeeDetailView: View {
                                 InfoRow(label: "Location", value: location)
                             }
                             
-                            if let phone = displayEmployee.phone {
+                            if let phone = displayEmployee.phoneNumber {
                                 InfoRow(label: "Phone", value: phone)
                             }
                             

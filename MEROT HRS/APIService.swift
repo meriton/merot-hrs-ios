@@ -445,11 +445,101 @@ class APIService: ObservableObject {
         return response.data
     }
     
-    func getAllEmployees(page: Int = 1, perPage: Int = 20, search: String? = nil) async throws -> AdminEmployeesResponse {
+    func updateAdminEmployee(id: Int, employee: AdminEmployeeUpdateRequest) async throws -> Employee {
+        // Create employee parameters without salary_detail
+        let employeeData = AdminEmployeeUpdateRequestForAPI(
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+            email: employee.email,
+            phoneNumber: employee.phoneNumber,
+            personalEmail: employee.personalEmail,
+            department: employee.department,
+            status: employee.status,
+            employeeType: employee.employeeType,
+            title: employee.title,
+            location: employee.location,
+            address: employee.address,
+            city: employee.city,
+            country: employee.country,
+            postcode: employee.postcode,
+            personalIdNumber: employee.personalIdNumber,
+            fullNameCyr: employee.fullNameCyr,
+            cityCyr: employee.cityCyr,
+            addressCyr: employee.addressCyr,
+            countryCyr: employee.countryCyr
+        )
+        
+        // Create the body with both employee and salary_detail
+        let requestBody = AdminEmployeeUpdateBody(
+            employee: employeeData,
+            salaryDetail: employee.salaryDetail
+        )
+        
+        let response: APIResponse<AdminEmployeeResponse> = try await networkManager.put(
+            endpoint: "/admin/employees/\(id)",
+            body: requestBody,
+            responseType: APIResponse<AdminEmployeeResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data.employee
+    }
+    
+    func createAdminEmployee(employee: AdminEmployeeCreateRequest) async throws -> Employee {
+        let response: APIResponse<AdminEmployeeResponse> = try await networkManager.post(
+            endpoint: "/admin/employees",
+            body: ["employee": employee],
+            responseType: APIResponse<AdminEmployeeResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data.employee
+    }
+    
+    func lookupBankName(accountNumber: String, country: String) async throws -> BankNameLookupResponse {
+        let request = BankNameLookupRequest(accountNumber: accountNumber, country: country)
+        
+        let response: APIResponse<BankNameLookupResponse> = try await networkManager.post(
+            endpoint: "/admin/bank_name_lookup",
+            body: request,
+            responseType: APIResponse<BankNameLookupResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data
+    }
+    
+    func getAdminEmployee(id: Int) async throws -> Employee {
+        let response: APIResponse<AdminEmployeeResponse> = try await networkManager.get(
+            endpoint: "/admin/employees/\(id)",
+            responseType: APIResponse<AdminEmployeeResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data.employee
+    }
+    
+    func getAllEmployees(page: Int = 1, perPage: Int = 20, search: String? = nil, status: String? = nil) async throws -> AdminEmployeesResponse {
         var endpoint = "/admin/employees?page=\(page)&per_page=\(perPage)"
         
         if let search = search, !search.isEmpty {
             endpoint += "&search=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+        
+        if let status = status, !status.isEmpty {
+            endpoint += "&status=\(status)"
         }
         
         let response: APIResponse<AdminEmployeesResponse> = try await networkManager.get(
@@ -501,3 +591,192 @@ struct AdminEmployeesResponse: Codable {
     let employees: [Employee]
     let pagination: PaginationInfo
 }
+
+struct AdminEmployeeResponse: Codable {
+    let employee: Employee
+}
+
+struct AdminEmployeeUpdateRequest: Codable {
+    let firstName: String?
+    let lastName: String?
+    let email: String?
+    let phoneNumber: String?
+    let personalEmail: String?
+    let department: String?
+    let status: String?
+    let employeeType: String?
+    let title: String?
+    let location: String?
+    let address: String?
+    let city: String?
+    let country: String?
+    let postcode: String?
+    let personalIdNumber: String?
+    let fullNameCyr: String?
+    let cityCyr: String?
+    let addressCyr: String?
+    let countryCyr: String?
+    let salaryDetail: AdminSalaryDetailUpdateRequest?
+    
+    enum CodingKeys: String, CodingKey {
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case email
+        case phoneNumber = "phone_number"
+        case personalEmail = "personal_email"
+        case department
+        case status
+        case employeeType = "employee_type"
+        case title
+        case location
+        case address
+        case city
+        case country
+        case postcode
+        case personalIdNumber = "personal_id_number"
+        case fullNameCyr = "full_name_cyr"
+        case cityCyr = "city_cyr"
+        case addressCyr = "address_cyr"
+        case countryCyr = "country_cyr"
+        case salaryDetail = "salary_detail"
+    }
+}
+
+struct AdminSalaryDetailUpdateRequest: Codable {
+    let baseSalary: Double?
+    let hourlySalary: Double?
+    let variableSalary: Double?
+    let deductions: Double?
+    let netSalary: Double?
+    let grossSalary: Double?
+    let seniority: Double?
+    let bankName: String?
+    let bankAccountNumber: String?
+    let onMaternity: Bool?
+    
+    enum CodingKeys: String, CodingKey {
+        case baseSalary = "base_salary"
+        case hourlySalary = "hourly_salary"
+        case variableSalary = "variable_salary"
+        case deductions = "deductions"
+        case netSalary = "net_salary"
+        case grossSalary = "gross_salary"
+        case seniority = "seniority"
+        case bankName = "bank_name"
+        case bankAccountNumber = "bank_account_number"
+        case onMaternity = "on_maternity"
+    }
+}
+
+struct AdminEmployeeUpdateRequestForAPI: Codable {
+    let firstName: String?
+    let lastName: String?
+    let email: String?
+    let phoneNumber: String?
+    let personalEmail: String?
+    let department: String?
+    let status: String?
+    let employeeType: String?
+    let title: String?
+    let location: String?
+    let address: String?
+    let city: String?
+    let country: String?
+    let postcode: String?
+    let personalIdNumber: String?
+    let fullNameCyr: String?
+    let cityCyr: String?
+    let addressCyr: String?
+    let countryCyr: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case email
+        case phoneNumber = "phone_number"
+        case personalEmail = "personal_email"
+        case department
+        case status
+        case employeeType = "employee_type"
+        case title
+        case location
+        case address
+        case city
+        case country
+        case postcode
+        case personalIdNumber = "personal_id_number"
+        case fullNameCyr = "full_name_cyr"
+        case cityCyr = "city_cyr"
+        case addressCyr = "address_cyr"
+        case countryCyr = "country_cyr"
+    }
+}
+
+struct AdminEmployeeUpdateBody: Codable {
+    let employee: AdminEmployeeUpdateRequestForAPI
+    let salaryDetail: AdminSalaryDetailUpdateRequest?
+    
+    enum CodingKeys: String, CodingKey {
+        case employee
+        case salaryDetail = "salary_detail"
+    }
+}
+
+struct BankNameLookupRequest: Codable {
+    let accountNumber: String
+    let country: String
+    
+    enum CodingKeys: String, CodingKey {
+        case accountNumber = "account_number"
+        case country
+    }
+}
+
+struct BankNameLookupResponse: Codable {
+    let bankName: String
+    let accountNumber: String
+    let country: String
+    
+    enum CodingKeys: String, CodingKey {
+        case bankName = "bank_name"
+        case accountNumber = "account_number"
+        case country
+    }
+}
+
+struct AdminEmployeeCreateRequest: Codable {
+    let firstName: String
+    let lastName: String
+    let email: String
+    let password: String?
+    let phoneNumber: String?
+    let personalEmail: String?
+    let department: String?
+    let status: String?
+    let employeeType: String?
+    let title: String?
+    let location: String?
+    let address: String?
+    let city: String?
+    let country: String?
+    let postcode: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case email
+        case password
+        case phoneNumber = "phone_number"
+        case personalEmail = "personal_email"
+        case department
+        case status
+        case employeeType = "employee_type"
+        case title
+        case location
+        case address
+        case city
+        case country
+        case postcode
+    }
+}
+

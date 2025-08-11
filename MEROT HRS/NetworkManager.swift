@@ -116,6 +116,14 @@ class NetworkManager: ObservableObject {
                 print("Response data: \(String(data: data, encoding: .utf8) ?? "Unable to decode data")")
                 throw NetworkError.decodingError
             }
+        } catch let urlError as URLError where urlError.code == .cancelled {
+            // Handle cancellation specifically - this is normal behavior
+            print("NetworkManager: Request was cancelled (Code: \(urlError.code.rawValue))")
+            throw NetworkError.networkError(urlError)
+        } catch is CancellationError {
+            // Handle Swift concurrency cancellation
+            print("NetworkManager: Task was cancelled")
+            throw CancellationError()
         } catch let error as NetworkError {
             throw error
         } catch {

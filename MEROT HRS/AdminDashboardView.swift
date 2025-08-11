@@ -53,18 +53,19 @@ struct AdminDashboardView: View {
 // Placeholder views for admin functionality
 struct AdminHomeView: View {
     @EnvironmentObject var authService: AuthenticationService
-    @StateObject private var apiService = APIService()
+    @StateObject private var cachedAPIService = CachedAPIService()
     @State private var dashboardData: AdminDashboardData?
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var currentTask: Task<Void, Never>?
     
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 20) {
+                LazyVStack(spacing: 20) {
                     if isLoading {
                         ProgressView("Loading dashboard...")
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .frame(maxWidth: .infinity, minHeight: 200)
                     } else if let errorMessage = errorMessage {
                         VStack(spacing: 16) {
                             Image(systemName: "exclamationmark.triangle")
@@ -86,6 +87,7 @@ struct AdminHomeView: View {
                             }
                             .buttonStyle(.borderedProminent)
                         }
+                        .frame(maxWidth: .infinity, minHeight: 300)
                         .padding()
                     } else if let dashboardData = dashboardData {
                         AdminDashboardStatsView(stats: dashboardData.stats)
@@ -96,11 +98,12 @@ struct AdminHomeView: View {
                     }
                 }
                 .padding()
+                .frame(maxWidth: .infinity)
             }
             .navigationTitle("Admin Dashboard")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await loadAdminDashboard()
+                await loadAdminDashboard(forceRefresh: true)
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -115,23 +118,116 @@ struct AdminHomeView: View {
             }
         }
         .onAppear {
+            currentTask = Task {
+                await loadAdminDashboard(forceRefresh: false)
+            }
+        }
+        .onDisappear {
+            currentTask?.cancel()
             Task {
-                await loadAdminDashboard()
+                await cachedAPIService.cancelAllRequests()
             }
         }
     }
     
-    private func loadAdminDashboard() async {
+    private func loadAdminDashboard(forceRefresh: Bool = false) async {
+        // Cancel any existing task
+        currentTask?.cancel()
+        await cachedAPIService.cancelAdminDashboardRequest()
+        
         isLoading = true
         errorMessage = nil
         
-        do {
-            dashboardData = try await apiService.getAdminDashboard()
-        } catch {
-            errorMessage = error.localizedDescription
+        print("AdminDashboardView: Starting loadAdminDashboard with forceRefresh: \(forceRefresh)")
+        
+        currentTask = Task {
+            do {
+                // Check if task was cancelled before starting
+                try Task.checkCancellation()
+                
+                dashboardData = try await cachedAPIService.getAdminDashboard(forceRefresh: forceRefresh)
+                
+                // Check if task was cancelled after network call
+                try Task.checkCancellation()
+                
+                await MainActor.run {
+                    print("AdminDashboardView: Successfully loaded dashboard data")
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    print("AdminDashboardView: Task was cancelled")
+                    // Don't show error message for cancelled requests
+                    isLoading = false
+                }
+                return
+            } catch let networkError as NetworkManager.NetworkError {
+                await MainActor.run {
+                    print("AdminDashboardView: NetworkManager error: \(networkError)")
+                    switch networkError {
+                    case .decodingError:
+                        errorMessage = "Failed to load dashboard data. Please try again later."
+                        print("Admin Dashboard Decoding Error: \(networkError)")
+                        
+                        // If decoding fails and we were trying to use cache, try to clear cache and fetch fresh
+                        if !forceRefresh {
+                            print("AdminDashboardView: Clearing cache and retrying with fresh data")
+                            cachedAPIService.invalidateAdminCache()
+                            
+                            // Schedule retry with force refresh
+                            Task {
+                                do {
+                                    let freshData = try await cachedAPIService.getAdminDashboard(forceRefresh: true)
+                                    await MainActor.run {
+                                        dashboardData = freshData
+                                        errorMessage = nil
+                                        print("AdminDashboardView: Successfully loaded fresh data after cache clear")
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        print("AdminDashboardView: Failed even after clearing cache: \(error)")
+                                        errorMessage = "Failed to load dashboard data. Please check your connection and try again."
+                                    }
+                                }
+                            }
+                        }
+                    case .authenticationError:
+                        errorMessage = "Authentication failed. Please log in again."
+                    case .networkError(let underlyingError):
+                        // Handle cancellation specifically
+                        if let nsError = underlyingError as NSError?,
+                           nsError.domain == NSURLErrorDomain,
+                           nsError.code == NSURLErrorCancelled {
+                            print("AdminDashboardView: Network request was cancelled - this is normal for pull-to-refresh")
+                            // Don't show error message for cancelled requests
+                        } else {
+                            errorMessage = "Network error: \(underlyingError.localizedDescription)"
+                        }
+                    case .serverError(let message):
+                        errorMessage = "Server error: \(message)"
+                    default:
+                        errorMessage = networkError.localizedDescription
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Unexpected error: \(error.localizedDescription)"
+                    print("Admin Dashboard Unexpected Error: \(error)")
+                    
+                    // If there's an unexpected error and we haven't force refreshed yet, try clearing cache
+                    if !forceRefresh {
+                        print("AdminDashboardView: Clearing cache due to unexpected error and retrying")
+                        cachedAPIService.invalidateAdminCache()
+                    }
+                }
+            }
         }
         
-        isLoading = false
+        await currentTask?.value
+        
+        await MainActor.run {
+            isLoading = false
+            print("AdminDashboardView: Finished loadAdminDashboard")
+        }
     }
 }
 
@@ -340,7 +436,7 @@ struct SystemAlertRow: View {
 }
 
 struct AdminEmployersView: View {
-    @StateObject private var apiService = APIService()
+    @StateObject private var cachedAPIService = CachedAPIService()
     @State private var employers: [Employer] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -448,7 +544,7 @@ struct AdminEmployersView: View {
                             }
                             .onAppear {
                                 Task {
-                                    await loadEmployers(reset: false)
+                                    await loadEmployers(reset: false, forceRefresh: false)
                                 }
                             }
                         }
@@ -459,13 +555,13 @@ struct AdminEmployersView: View {
             .navigationTitle("Employers")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await loadEmployers(reset: true)
+                await loadEmployers(reset: true, forceRefresh: true)
             }
         }
         .onAppear {
             if employers.isEmpty {
                 Task {
-                    await loadEmployers(reset: true)
+                    await loadEmployers(reset: true, forceRefresh: false)
                 }
             }
         }
@@ -474,7 +570,7 @@ struct AdminEmployersView: View {
         }
     }
     
-    private func loadEmployers(reset: Bool) async {
+    private func loadEmployers(reset: Bool, forceRefresh: Bool = false) async {
         if reset {
             currentPage = 1
             hasMorePages = true
@@ -487,9 +583,10 @@ struct AdminEmployersView: View {
         errorMessage = nil
         
         do {
-            let response = try await apiService.getAllEmployers(
+            let response = try await cachedAPIService.getAllEmployers(
                 page: currentPage,
-                search: searchText.isEmpty ? nil : searchText
+                search: searchText.isEmpty ? nil : searchText,
+                forceRefresh: forceRefresh
             )
             
             if reset {
@@ -500,8 +597,23 @@ struct AdminEmployersView: View {
             
             hasMorePages = response.pagination.currentPage < response.pagination.totalPages
             currentPage += 1
+        } catch let networkError as NetworkManager.NetworkError {
+            switch networkError {
+            case .decodingError:
+                errorMessage = "Failed to load employers data. Please try again later."
+                print("Employers Decoding Error: \(networkError)")
+            case .authenticationError:
+                errorMessage = "Authentication failed. Please log in again."
+            case .serverError(let message):
+                errorMessage = "Server error: \(message)"
+            case .networkError(let underlyingError):
+                errorMessage = "Network error: \(underlyingError.localizedDescription)"
+            default:
+                errorMessage = networkError.localizedDescription
+            }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Unexpected error: \(error.localizedDescription)"
+            print("Employers Unexpected Error: \(error)")
         }
         
         isLoading = false
@@ -618,7 +730,7 @@ struct EmployerDetailView: View {
 }
 
 struct AdminEmployeesView: View {
-    @StateObject private var apiService = APIService()
+    @StateObject private var cachedAPIService = CachedAPIService()
     @State private var employees: [Employee] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -626,6 +738,9 @@ struct AdminEmployeesView: View {
     @State private var currentPage = 1
     @State private var hasMorePages = true
     @State private var selectedEmployee: Employee?
+    @State private var selectedStatus = "active" // Default to active
+    
+    let statusOptions = ["active", "pending", "terminated"]
     
     var filteredEmployees: [Employee] {
         if searchText.isEmpty {
@@ -642,118 +757,198 @@ struct AdminEmployeesView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Search Bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    
-                    TextField("Search employees", text: $searchText)
-                        .textFieldStyle(PlainTextFieldStyle())
-                    
-                    if !searchText.isEmpty {
-                        Button(action: {
-                            searchText = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
-                .padding(.horizontal)
-                .padding(.top)
-                
-                if isLoading && employees.isEmpty {
-                    Spacer()
-                    ProgressView("Loading employees...")
-                    Spacer()
-                } else if let errorMessage = errorMessage {
-                    Spacer()
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.largeTitle)
-                            .foregroundColor(.orange)
-                        
-                        Text("Error")
-                            .font(.headline)
-                        
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        
-                        Button("Retry") {
-                            Task {
-                                await loadEmployees(reset: true)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .padding()
-                    Spacer()
-                } else if filteredEmployees.isEmpty {
-                    Spacer()
-                    VStack(spacing: 16) {
-                        Image(systemName: "person.3")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text("No employees found")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        if !searchText.isEmpty {
-                            Text("Try adjusting your search")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    Spacer()
-                } else {
-                    List {
-                        ForEach(filteredEmployees) { employee in
-                            AdminEmployeeRow(employee: employee) {
-                                selectedEmployee = employee
-                            }
-                        }
-                        
-                        if hasMorePages && searchText.isEmpty {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                Spacer()
-                            }
-                            .onAppear {
-                                Task {
-                                    await loadEmployees(reset: false)
-                                }
-                            }
-                        }
-                    }
-                    .listStyle(PlainListStyle())
-                }
+            VStack(spacing: 16) {
+                searchBar
+                statusFilter
+                contentView
             }
             .navigationTitle("Employees")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await loadEmployees(reset: true)
+                await loadEmployees(reset: true, forceRefresh: true)
             }
         }
         .onAppear {
             if employees.isEmpty {
                 Task {
-                    await loadEmployees(reset: true)
+                    await loadEmployees(reset: true, forceRefresh: false)
                 }
+            }
+        }
+        .onChange(of: searchText) { _, _ in
+            Task {
+                await loadEmployees(reset: true, forceRefresh: true)
             }
         }
         .sheet(item: $selectedEmployee) { employee in
             AdminEmployeeDetailView(employee: employee)
+                .onDisappear {
+                    // Refresh the employee list when the detail view is dismissed
+                    Task {
+                        await loadEmployees(reset: true, forceRefresh: true)
+                    }
+                }
         }
     }
     
-    private func loadEmployees(reset: Bool) async {
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            
+            TextField("Search employees", text: $searchText)
+                .textFieldStyle(PlainTextFieldStyle())
+            
+            if !searchText.isEmpty {
+                Button(action: {
+                    searchText = ""
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        .padding(.horizontal)
+        .padding(.top)
+    }
+    
+    private var statusFilter: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Text("Filter:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Text("\(employees.count) employees")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+            
+            statusButtons
+        }
+        .padding(.top, 12)
+    }
+    
+    private var statusButtons: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(statusOptions.enumerated()), id: \.offset) { index, status in
+                Button(action: {
+                    selectedStatus = status
+                    Task {
+                        await loadEmployees(reset: true, forceRefresh: true)
+                    }
+                }) {
+                    Text(status.capitalized)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(selectedStatus == status ? .white : .primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            selectedStatus == status ? 
+                                Color.blue : Color.clear
+                        )
+                        .clipShape(
+                            RoundedCorner(
+                                radius: 10,
+                                corners: corners(for: index, total: statusOptions.count)
+                            )
+                        )
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(.systemGray5))
+        )
+        .padding(.horizontal)
+    }
+    
+    private var contentView: some View {
+        Group {
+            if isLoading && employees.isEmpty {
+                Spacer()
+                ProgressView("Loading employees...")
+                Spacer()
+            } else if let errorMessage = errorMessage {
+                Spacer()
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    
+                    Text("Error")
+                        .font(.headline)
+                    
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    
+                    Button("Retry") {
+                        Task {
+                            await loadEmployees(reset: true)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding()
+                Spacer()
+            } else if filteredEmployees.isEmpty {
+                Spacer()
+                VStack(spacing: 16) {
+                    Image(systemName: "person.3")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No employees found")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    if !searchText.isEmpty {
+                        Text("Try adjusting your search")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+            } else {
+                List {
+                    ForEach(filteredEmployees) { employee in
+                        AdminEmployeeRow(employee: employee) {
+                            selectedEmployee = employee
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.visible)
+                    }
+                    
+                    if hasMorePages && searchText.isEmpty {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                        .onAppear {
+                            Task {
+                                await loadEmployees(reset: false, forceRefresh: false)
+                            }
+                        }
+                    }
+                }
+                .listStyle(PlainListStyle())
+                .environment(\.defaultMinListRowHeight, 0)
+            }
+        }
+    }
+    
+    private func loadEmployees(reset: Bool, forceRefresh: Bool = false) async {
         if reset {
             currentPage = 1
             hasMorePages = true
@@ -766,9 +961,11 @@ struct AdminEmployeesView: View {
         errorMessage = nil
         
         do {
-            let response = try await apiService.getAllEmployees(
+            let response = try await cachedAPIService.getAllEmployees(
                 page: currentPage,
-                search: searchText.isEmpty ? nil : searchText
+                search: searchText.isEmpty ? nil : searchText,
+                status: selectedStatus,
+                forceRefresh: forceRefresh
             )
             
             if reset {
@@ -779,11 +976,50 @@ struct AdminEmployeesView: View {
             
             hasMorePages = response.pagination.currentPage < response.pagination.totalPages
             currentPage += 1
+        } catch let networkError as NetworkManager.NetworkError {
+            switch networkError {
+            case .decodingError:
+                errorMessage = "Failed to load employees data. Please try again later."
+                print("Employees Decoding Error: \(networkError)")
+            case .authenticationError:
+                errorMessage = "Authentication failed. Please log in again."
+            case .serverError(let message):
+                errorMessage = "Server error: \(message)"
+            case .networkError(let underlyingError):
+                errorMessage = "Network error: \(underlyingError.localizedDescription)"
+            default:
+                errorMessage = networkError.localizedDescription
+            }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Unexpected error: \(error.localizedDescription)"
+            print("Employees Unexpected Error: \(error)")
         }
         
         isLoading = false
+    }
+    
+    private func corners(for index: Int, total: Int) -> UIRectCorner {
+        if index == 0 {
+            return [.topLeft, .bottomLeft]
+        } else if index == total - 1 {
+            return [.topRight, .bottomRight]
+        } else {
+            return []
+        }
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
     }
 }
 
@@ -793,77 +1029,114 @@ struct AdminEmployeeRow: View {
     
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(employee.fullName)
+            HStack(spacing: 12) {
+                // Avatar placeholder
+                Circle()
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Text(employee.fullName.prefix(1))
                             .font(.headline)
                             .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    )
+                
+                // Main content
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(employee.fullName)
+                            .font(.body)
+                            .fontWeight(.medium)
                             .foregroundColor(.primary)
                         
-                        Text(employee.email)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        Spacer()
                         
-                        if let department = employee.department {
-                            Text(department)
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                        }
+                        // Status badge
+                        Text(employee.status.capitalized)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(statusColor.opacity(0.15))
+                            .foregroundColor(statusColor)
+                            .cornerRadius(4)
                     }
                     
-                    Spacer()
+                    Text(employee.email)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                     
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("ID: \(employee.employeeId ?? "N/A")")
-                            .font(.caption)
+                    HStack(spacing: 12) {
+                        if let department = employee.department {
+                            HStack(spacing: 4) {
+                                Image(systemName: "building.2")
+                                    .font(.caption2)
+                                Text(formatDepartmentName(department))
+                                    .font(.caption)
+                            }
                             .foregroundColor(.secondary)
+                        }
                         
-                        Text(employee.status.capitalized)
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(employee.status == "active" ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
-                            .foregroundColor(employee.status == "active" ? .green : .orange)
-                            .cornerRadius(8)
+                        if let employeeId = employee.employeeId {
+                            HStack(spacing: 4) {
+                                Image(systemName: "number")
+                                    .font(.caption2)
+                                Text(employeeId)
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        if let salaryDetail = employee.salaryDetail, let gross = salaryDetail.grossSalary {
+                            Text("$\(Int(gross))")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.green)
+                        }
                     }
                 }
                 
-                HStack {
-                    if let employment = employee.employment, let startDate = employment.startDate {
-                        Label("Started \(startDate, style: .date)", systemImage: "calendar")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Label("Joined \(employee.createdAt, style: .date)", systemImage: "calendar")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    if let salaryDetail = employee.salaryDetail {
-                        Text("$\(Int(salaryDetail.grossSalary ?? 0))/mo")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.green)
-                    }
-                }
+                // Chevron
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .background(Color(.systemBackground))
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(PlainButtonStyle())
-        .padding(.horizontal)
-        .padding(.vertical, 4)
+    }
+    
+    private var statusColor: Color {
+        switch employee.status {
+        case "active": return .green
+        case "pending": return .orange
+        case "terminated": return .red
+        default: return .gray
+        }
+    }
+    
+    private func formatDepartmentName(_ department: String) -> String {
+        switch department {
+        case "business_development": return "Business Dev"
+        case "customer_service": return "Customer Service"
+        case "human_resources": return "HR"
+        case "social_media": return "Social Media"
+        default: return department.capitalized
+        }
     }
 }
 
 struct AdminEmployeeDetailView: View {
     let employee: Employee
     @Environment(\.dismiss) private var dismiss
+    @State private var detailedEmployee: Employee?
+    @State private var isLoadingDetails = false
+    @StateObject private var cachedAPIService = CachedAPIService()
     
     var body: some View {
         NavigationView {
@@ -878,7 +1151,7 @@ struct AdminEmployeeDetailView: View {
                         Label(employee.email, systemImage: "envelope")
                             .foregroundColor(.secondary)
                         
-                        if let phone = employee.phone {
+                        if let phone = employee.phoneNumber {
                             Label(phone, systemImage: "phone")
                                 .foregroundColor(.secondary)
                         }
@@ -949,12 +1222,46 @@ struct AdminEmployeeDetailView: View {
                         
                         DetailRow(label: "Account Created", value: employee.createdAt.formatted(date: .abbreviated, time: .shortened))
                     }
+                    
+                    // Action Buttons
+                    VStack(spacing: 12) {
+                        Divider()
+                        
+                        Button(action: {
+                            Task {
+                                await loadDetailedEmployeeData()
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "pencil")
+                                Text("Edit Employee")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                    }
                 }
                 .padding()
             }
             .navigationTitle("Employee Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if isLoadingDetails {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Button("Edit") {
+                            Task {
+                                await loadDetailedEmployeeData()
+                            }
+                        }
+                    }
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
@@ -962,19 +1269,780 @@ struct AdminEmployeeDetailView: View {
                 }
             }
         }
+        .sheet(item: $detailedEmployee) { detailedEmp in
+            AdminEmployeeEditView(employee: detailedEmp) { updatedEmployee in
+                // Handle successful update - the parent view will refresh
+                detailedEmployee = nil  // This will dismiss the sheet
+                dismiss()
+            }
+        }
+    }
+    
+    private func loadDetailedEmployeeData() async {
+        await MainActor.run {
+            isLoadingDetails = true
+        }
+        
+        do {
+            let detailed = try await cachedAPIService.getAdminEmployee(id: employee.id, forceRefresh: true)
+            await MainActor.run {
+                print("Successfully loaded detailed employee data")
+                print("  ID: \(detailed.id)")
+                print("  Name: \(detailed.fullName)")
+                print("  Phone: \(detailed.phoneNumber ?? "nil")")
+                print("  Address: \(detailed.address ?? "nil")")
+                print("  City: \(detailed.city ?? "nil")")
+                
+                detailedEmployee = detailed  // This will trigger the sheet
+                isLoadingDetails = false
+            }
+        } catch {
+            print("Failed to load detailed employee data: \(error)")
+            print("Error details: \(error.localizedDescription)")
+            if let networkError = error as? NetworkManager.NetworkError {
+                print("Network error: \(networkError)")
+            }
+            await MainActor.run {
+                // Use basic data as fallback
+                detailedEmployee = employee  // This will trigger the sheet
+                isLoadingDetails = false
+            }
+        }
     }
 }
 
 struct AdminSettingsView: View {
+    @EnvironmentObject var authService: AuthenticationService
+    @StateObject private var cachedAPIService = CachedAPIService()
+    @State private var showingCacheSettings = false
+    @State private var showingSystemInfo = false
+    @State private var showingDataExport = false
+    @State private var showingUserManagement = false
+    @State private var showingSecuritySettings = false
+    @State private var showingNotificationSettings = false
+    @State private var showingLogout = false
+    @State private var isLoggingOut = false
+    
+    // Settings state
+    @State private var enablePushNotifications = true
+    @State private var enableEmailNotifications = true
+    @State private var enableAutoBackup = true
+    @State private var dataRetentionDays = 90
+    @State private var enableDebugLogging = false
+    
     var body: some View {
         NavigationView {
-            VStack {
-                Text("Admin Settings")
-                    .font(.title)
-                Text("Coming soon...")
-                    .foregroundColor(.secondary)
+            List {
+                // Account Section
+                Section("Account") {
+                    Button(action: {
+                        showingUserManagement = true
+                    }) {
+                        HStack {
+                            Label("User Management", systemImage: "person.2.circle")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    
+                    Button(action: {
+                        showingSecuritySettings = true
+                    }) {
+                        HStack {
+                            Label("Security Settings", systemImage: "lock.shield")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                }
+                
+                // Data Management Section
+                Section("Data Management") {
+                    Button(action: {
+                        showingDataExport = true
+                    }) {
+                        HStack {
+                            Label("Export Data", systemImage: "square.and.arrow.up")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    
+                    HStack {
+                        Label("Data Retention", systemImage: "calendar.badge.clock")
+                        Spacer()
+                        Picker("Days", selection: $dataRetentionDays) {
+                            Text("30 days").tag(30)
+                            Text("90 days").tag(90)
+                            Text("180 days").tag(180)
+                            Text("1 year").tag(365)
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    
+                    Toggle(isOn: $enableAutoBackup) {
+                        Label("Auto Backup", systemImage: "icloud.and.arrow.up")
+                    }
+                }
+                
+                // Notifications Section
+                Section("Notifications") {
+                    Toggle(isOn: $enablePushNotifications) {
+                        Label("Push Notifications", systemImage: "bell")
+                    }
+                    
+                    Toggle(isOn: $enableEmailNotifications) {
+                        Label("Email Notifications", systemImage: "envelope")
+                    }
+                    
+                    Button(action: {
+                        showingNotificationSettings = true
+                    }) {
+                        HStack {
+                            Label("Notification Preferences", systemImage: "bell.badge")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                }
+                
+                // Performance Section
+                Section("Performance") {
+                    Button(action: {
+                        showingCacheSettings = true
+                    }) {
+                        HStack {
+                            Label("Cache Settings", systemImage: "externaldrive")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    
+                    Toggle(isOn: $enableDebugLogging) {
+                        Label("Debug Logging", systemImage: "doc.text.magnifyingglass")
+                    }
+                }
+                
+                // System Section
+                Section("System") {
+                    Button(action: {
+                        showingSystemInfo = true
+                    }) {
+                        HStack {
+                            Label("System Information", systemImage: "info.circle")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    
+                    Button(action: {
+                        Task {
+                            await clearAllCaches()
+                        }
+                    }) {
+                        Label("Clear All Data", systemImage: "trash")
+                            .foregroundColor(.orange)
+                    }
+                }
+                
+                // Account Actions Section
+                Section("Account Actions") {
+                    Button(action: {
+                        showingLogout = true
+                    }) {
+                        HStack {
+                            if isLoggingOut {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Logging out...")
+                            } else {
+                                Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                            }
+                        }
+                        .foregroundColor(.red)
+                    }
+                    .disabled(isLoggingOut)
+                }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
+        }
+        .sheet(isPresented: $showingCacheSettings) {
+            CacheSettingsView()
+        }
+        .sheet(isPresented: $showingSystemInfo) {
+            SystemInfoView()
+        }
+        .sheet(isPresented: $showingDataExport) {
+            DataExportView()
+        }
+        .sheet(isPresented: $showingUserManagement) {
+            UserManagementView()
+        }
+        .sheet(isPresented: $showingSecuritySettings) {
+            SecuritySettingsView()
+        }
+        .sheet(isPresented: $showingNotificationSettings) {
+            NotificationSettingsView()
+        }
+        .alert("Logout", isPresented: $showingLogout) {
+            Button("Cancel", role: .cancel) { }
+            Button("Logout", role: .destructive) {
+                Task {
+                    await performLogout()
+                }
+            }
+        } message: {
+            Text("Are you sure you want to logout? Any unsaved changes will be lost.")
+        }
+    }
+    
+    private func clearAllCaches() async {
+        await cachedAPIService.cancelAllRequests()
+        cachedAPIService.invalidateAllCache()
+    }
+    
+    private func performLogout() async {
+        await MainActor.run {
+            isLoggingOut = true
+        }
+        
+        // Clear caches and cancel requests
+        await clearAllCaches()
+        
+        // Perform logout
+        await authService.logout()
+        
+        await MainActor.run {
+            isLoggingOut = false
+        }
+    }
+}
+
+struct AdminEmployeeEditView: View {
+    let employee: Employee
+    let onSave: (Employee) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var cachedAPIService = CachedAPIService()
+    
+    @State private var firstName: String
+    @State private var lastName: String
+    @State private var email: String
+    @State private var phoneNumber: String
+    @State private var personalEmail: String
+    @State private var department: String
+    @State private var status: String
+    @State private var employeeType: String
+    @State private var title: String
+    @State private var location: String
+    @State private var address: String
+    @State private var city: String
+    @State private var country: String
+    @State private var postcode: String
+    @State private var personalIdNumber: String
+    @State private var fullNameCyr: String
+    @State private var cityCyr: String
+    @State private var addressCyr: String
+    @State private var countryCyr: String
+    
+    // Salary Detail Fields
+    @State private var baseSalary: String
+    @State private var hourlySalary: String
+    @State private var variableSalary: String
+    @State private var deductions: String
+    @State private var netSalary: String
+    @State private var grossSalary: String
+    @State private var seniority: String
+    @State private var bankName: String
+    @State private var bankAccountNumber: String
+    @State private var onMaternity: Bool
+    
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var showingErrorAlert = false
+    @State private var isLookingUpBank = false
+    
+    let statusOptions = ["pending", "active", "terminated"]
+    let employeeTypeOptions = ["internal", "external"]
+    let countryOptions = ["north_macedonia", "kosovo", "albania", "bulgaria", "serbia", "montenegro"]
+    let departmentOptions = ["executive", "management", "sales", "marketing", "business_development", "technology", "customer_service", "human_resources", "finance", "accounting", "social_media", "operations", "construction", "other"]
+    
+    init(employee: Employee, onSave: @escaping (Employee) -> Void) {
+        self.employee = employee
+        self.onSave = onSave
+        
+        print("AdminEmployeeEditView init with employee: \(employee.id)")
+        print("  firstName: \(employee.firstName ?? "nil")")
+        print("  lastName: \(employee.lastName ?? "nil")")
+        print("  email: \(employee.email)")
+        print("  phoneNumber: \(employee.phoneNumber ?? "nil")")
+        print("  address: \(employee.address ?? "nil")")
+        print("  city: \(employee.city ?? "nil")")
+        print("  salaryDetail: \(employee.salaryDetail != nil ? "present" : "nil")")
+        
+        _firstName = State(initialValue: employee.firstName ?? "")
+        _lastName = State(initialValue: employee.lastName ?? "")
+        _email = State(initialValue: employee.email)
+        _phoneNumber = State(initialValue: employee.phoneNumber ?? "")
+        _personalEmail = State(initialValue: employee.personalEmail ?? "")
+        _department = State(initialValue: employee.department ?? "")
+        _status = State(initialValue: employee.status)
+        _employeeType = State(initialValue: employee.employeeType ?? "internal")
+        _title = State(initialValue: employee.title ?? "")
+        _location = State(initialValue: employee.location ?? "")
+        _address = State(initialValue: employee.address ?? "")
+        _city = State(initialValue: employee.city ?? "")
+        _country = State(initialValue: employee.country ?? "")
+        _postcode = State(initialValue: employee.postcode ?? "")
+        _personalIdNumber = State(initialValue: employee.personalIdNumber ?? "")
+        _fullNameCyr = State(initialValue: employee.fullNameCyr ?? "")
+        _cityCyr = State(initialValue: employee.cityCyr ?? "")
+        _addressCyr = State(initialValue: employee.addressCyr ?? "")
+        _countryCyr = State(initialValue: employee.countryCyr ?? "")
+        
+        // Initialize salary detail fields
+        _baseSalary = State(initialValue: employee.salaryDetail?.baseSalary.map { String($0) } ?? "")
+        _hourlySalary = State(initialValue: employee.salaryDetail?.hourlySalary.map { String($0) } ?? "")
+        _variableSalary = State(initialValue: employee.salaryDetail?.variableSalary.map { String($0) } ?? "")
+        _deductions = State(initialValue: employee.salaryDetail?.deductions.map { String($0) } ?? "")
+        _netSalary = State(initialValue: employee.salaryDetail?.netSalary.map { String($0) } ?? "")
+        _grossSalary = State(initialValue: employee.salaryDetail?.grossSalary.map { String($0) } ?? "")
+        _seniority = State(initialValue: employee.salaryDetail?.seniority.map { String($0) } ?? "")
+        _bankName = State(initialValue: employee.salaryDetail?.bankName ?? "")
+        _bankAccountNumber = State(initialValue: employee.salaryDetail?.bankAccountNumber ?? "")
+        _onMaternity = State(initialValue: employee.salaryDetail?.onMaternity ?? false)
+    }
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Personal Information") {
+                    HStack {
+                        Text("First Name")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $firstName)
+                            .autocapitalization(.words)
+                    }
+                    
+                    HStack {
+                        Text("Last Name")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $lastName)
+                            .autocapitalization(.words)
+                    }
+                    
+                    HStack {
+                        Text("Email")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $email)
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                    }
+                    
+                    HStack {
+                        Text("Personal Email")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $personalEmail)
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                    }
+                    
+                    HStack {
+                        Text("Phone Number")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $phoneNumber)
+                            .keyboardType(.phonePad)
+                    }
+                    
+                    HStack {
+                        Text("ID Number")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $personalIdNumber)
+                    }
+                }
+                
+                Section("Employment") {
+                    Picker("Status", selection: $status) {
+                        ForEach(statusOptions, id: \.self) { status in
+                            Text(status.capitalized).tag(status)
+                        }
+                    }
+                    
+                    Picker("Employee Type", selection: $employeeType) {
+                        ForEach(employeeTypeOptions, id: \.self) { type in
+                            Text(type.capitalized).tag(type)
+                        }
+                    }
+                    
+                    Picker("Department", selection: $department) {
+                        ForEach(departmentOptions, id: \.self) { dept in
+                            Text(formatDepartmentName(dept)).tag(dept)
+                        }
+                    }
+                    
+                    HStack {
+                        Text("Title")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $title)
+                            .autocapitalization(.words)
+                    }
+                    
+                }
+                
+                Section("Location & Address") {
+                    HStack {
+                        Text("Location")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $location)
+                            .autocapitalization(.words)
+                    }
+                    
+                    HStack {
+                        Text("Address")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $address)
+                            .autocapitalization(.words)
+                    }
+                    
+                    HStack {
+                        Text("City")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $city)
+                            .autocapitalization(.words)
+                    }
+                    
+                    Picker("Country", selection: $country) {
+                        ForEach(countryOptions, id: \.self) { countryCode in
+                            Text(formatCountryName(countryCode)).tag(countryCode)
+                        }
+                    }
+                    
+                    HStack {
+                        Text("Postcode")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $postcode)
+                            .autocapitalization(.allCharacters)
+                    }
+                }
+                
+                if country == "north_macedonia" {
+                    Section("Cyrillic Information") {
+                        HStack {
+                            Text("Full Name (Cyr)")
+                                .frame(width: 120, alignment: .leading)
+                                .foregroundColor(.secondary)
+                            TextField("", text: $fullNameCyr)
+                        }
+                        
+                        HStack {
+                            Text("Address (Cyr)")
+                                .frame(width: 120, alignment: .leading)
+                                .foregroundColor(.secondary)
+                            TextField("", text: $addressCyr)
+                        }
+                        
+                        HStack {
+                            Text("City (Cyr)")
+                                .frame(width: 120, alignment: .leading)
+                                .foregroundColor(.secondary)
+                            TextField("", text: $cityCyr)
+                        }
+                        
+                        HStack {
+                            Text("Country (Cyr)")
+                                .frame(width: 120, alignment: .leading)
+                                .foregroundColor(.secondary)
+                            TextField("", text: $countryCyr)
+                        }
+                    }
+                }
+                
+                Section("Salary Details") {
+                    HStack {
+                        Text("Base Salary")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $baseSalary)
+                            .keyboardType(.decimalPad)
+                    }
+                    
+                    HStack {
+                        Text("Hourly Salary")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $hourlySalary)
+                            .keyboardType(.decimalPad)
+                    }
+                    
+                    HStack {
+                        Text("Variable Salary")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $variableSalary)
+                            .keyboardType(.decimalPad)
+                    }
+                    
+                    HStack {
+                        Text("Deductions")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $deductions)
+                            .keyboardType(.decimalPad)
+                    }
+                    
+                    HStack {
+                        Text("Net Salary")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $netSalary)
+                            .keyboardType(.decimalPad)
+                    }
+                    
+                    HStack {
+                        Text("Gross Salary")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $grossSalary)
+                            .keyboardType(.decimalPad)
+                    }
+                    
+                    HStack {
+                        Text("Seniority")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $seniority)
+                            .keyboardType(.decimalPad)
+                    }
+                    
+                    Toggle("On Maternity", isOn: $onMaternity)
+                }
+                
+                Section("Banking Information") {
+                    HStack {
+                        Text("Account Number")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $bankAccountNumber)
+                            .keyboardType(.numberPad)
+                            .onChange(of: bankAccountNumber) { _, newValue in
+                                Task {
+                                    await lookupBankName(for: newValue)
+                                }
+                            }
+                        
+                        if isLookingUpBank {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                    }
+                    
+                    HStack {
+                        Text("Bank Name")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(bankName.isEmpty ? "Auto-detected" : bankName)
+                            .foregroundColor(bankName.isEmpty ? .secondary : .primary)
+                    }
+                }
+                
+                if let errorMessage = errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+            }
+            .navigationTitle("Edit Employee")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .disabled(isLoading)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        Task {
+                            await saveEmployee()
+                        }
+                    }
+                    .disabled(isLoading || firstName.isEmpty || lastName.isEmpty || email.isEmpty)
+                }
+            }
+        }
+        .alert("Error", isPresented: $showingErrorAlert) {
+            Button("OK") { }
+        } message: {
+            Text(errorMessage ?? "An unknown error occurred")
+        }
+    }
+    
+    private func saveEmployee() async {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        let updateRequest = AdminEmployeeUpdateRequest(
+            firstName: firstName.isEmpty ? nil : firstName,
+            lastName: lastName.isEmpty ? nil : lastName,
+            email: email.isEmpty ? nil : email,
+            phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
+            personalEmail: personalEmail.isEmpty ? nil : personalEmail,
+            department: department.isEmpty ? nil : department,
+            status: status,
+            employeeType: employeeType.isEmpty ? nil : employeeType,
+            title: title.isEmpty ? nil : title,
+            location: location.isEmpty ? nil : location,
+            address: address.isEmpty ? nil : address,
+            city: city.isEmpty ? nil : city,
+            country: country.isEmpty ? nil : country,
+            postcode: postcode.isEmpty ? nil : postcode,
+            personalIdNumber: personalIdNumber.isEmpty ? nil : personalIdNumber,
+            fullNameCyr: fullNameCyr.isEmpty ? nil : fullNameCyr,
+            cityCyr: cityCyr.isEmpty ? nil : cityCyr,
+            addressCyr: addressCyr.isEmpty ? nil : addressCyr,
+            countryCyr: countryCyr.isEmpty ? nil : countryCyr,
+            salaryDetail: createSalaryDetail()
+        )
+        
+        do {
+            let updatedEmployee = try await cachedAPIService.updateAdminEmployee(id: employee.id, employee: updateRequest)
+            
+            await MainActor.run {
+                isLoading = false
+                onSave(updatedEmployee)
+                dismiss()
+            }
+        } catch let networkError as NetworkManager.NetworkError {
+            await MainActor.run {
+                isLoading = false
+                switch networkError {
+                case .authenticationError:
+                    errorMessage = "Authentication failed. Please log in again."
+                case .serverError(let message):
+                    errorMessage = message
+                case .networkError(let underlyingError):
+                    errorMessage = "Network error: \(underlyingError.localizedDescription)"
+                default:
+                    errorMessage = "Failed to update employee: \(networkError.localizedDescription)"
+                }
+                showingErrorAlert = true
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                errorMessage = "Unexpected error: \(error.localizedDescription)"
+                showingErrorAlert = true
+            }
+        }
+    }
+    
+    private func createSalaryDetail() -> AdminSalaryDetailUpdateRequest? {
+        // Check if any salary detail fields have values
+        let hasAnyValue = !baseSalary.isEmpty || !hourlySalary.isEmpty || !variableSalary.isEmpty ||
+                         !deductions.isEmpty || !netSalary.isEmpty || !grossSalary.isEmpty ||
+                         !seniority.isEmpty || !bankName.isEmpty || !bankAccountNumber.isEmpty ||
+                         onMaternity
+        
+        guard hasAnyValue else { return nil }
+        
+        return AdminSalaryDetailUpdateRequest(
+            baseSalary: baseSalary.isEmpty ? nil : Double(baseSalary),
+            hourlySalary: hourlySalary.isEmpty ? nil : Double(hourlySalary),
+            variableSalary: variableSalary.isEmpty ? nil : Double(variableSalary),
+            deductions: deductions.isEmpty ? nil : Double(deductions),
+            netSalary: netSalary.isEmpty ? nil : Double(netSalary),
+            grossSalary: grossSalary.isEmpty ? nil : Double(grossSalary),
+            seniority: seniority.isEmpty ? nil : Double(seniority),
+            bankName: bankName.isEmpty ? nil : bankName,
+            bankAccountNumber: bankAccountNumber.isEmpty ? nil : bankAccountNumber,
+            onMaternity: onMaternity
+        )
+    }
+    
+    @MainActor
+    private func lookupBankName(for accountNumber: String) async {
+        // Only lookup if we have a valid account number and country
+        guard !accountNumber.isEmpty && !country.isEmpty else {
+            bankName = ""
+            return
+        }
+        
+        // Don't lookup for very short account numbers
+        guard accountNumber.count >= 2 else {
+            bankName = ""
+            return
+        }
+        
+        isLookingUpBank = true
+        
+        do {
+            let result = try await cachedAPIService.lookupBankName(accountNumber: accountNumber, country: country)
+            bankName = result.bankName
+        } catch {
+            print("Bank lookup error: \(error)")
+            // Don't show error to user, just leave bank name empty
+            bankName = ""
+        }
+        
+        isLookingUpBank = false
+    }
+    
+    private func formatDepartmentName(_ department: String) -> String {
+        switch department {
+        case "business_development":
+            return "Business Development"
+        case "customer_service":
+            return "Customer Service"
+        case "human_resources":
+            return "Human Resources"
+        case "social_media":
+            return "Social Media"
+        default:
+            return department.capitalized
+        }
+    }
+    
+    private func formatCountryName(_ countryCode: String) -> String {
+        switch countryCode {
+        case "north_macedonia":
+            return "North Macedonia"
+        default:
+            return countryCode.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 }
