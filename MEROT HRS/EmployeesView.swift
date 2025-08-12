@@ -271,7 +271,7 @@ struct EmployeeRow: View {
                     HStack(spacing: 6) {
                         StatusBadge(status: employee.status)
                         
-                        if let onLeave = employee.onLeave, onLeave {
+                        if let onLeave = employee.onLeave, !onLeave.isEmpty {
                             OnLeaveBadge()
                         }
                     }

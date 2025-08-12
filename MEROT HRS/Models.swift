@@ -188,7 +188,7 @@ struct Employee: Codable, Identifiable {
     let cityCyr: String?
     let addressCyr: String?
     let countryCyr: String?
-    let onLeave: Bool?
+    let onLeave: String?
     let employment: Employment?
     let salaryDetail: SalaryDetail?
     let createdAt: Date
