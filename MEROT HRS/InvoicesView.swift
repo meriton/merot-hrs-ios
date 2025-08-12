@@ -170,11 +170,11 @@ struct InvoiceRow: View {
                 // Header row
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(invoice.invoice_number)
+                        Text(invoice.invoiceNumber)
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        if let billingPeriod = invoice.billing_period_display {
+                        if let billingPeriod = invoice.billingPeriodDisplay {
                             Text(billingPeriod)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
@@ -184,7 +184,7 @@ struct InvoiceRow: View {
                     Spacer()
                     
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(String(format: "$%.2f", invoice.total_amount))
+                        Text(String(format: "$%.2f", invoice.totalAmount))
                             .font(.headline)
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
@@ -196,7 +196,7 @@ struct InvoiceRow: View {
                 // Details row
                 HStack {
                     Label {
-                        Text("Due: \(formatDate(invoice.due_date))")
+                        Text("Due: \(formatDate(invoice.dueDate))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     } icon: {
@@ -208,7 +208,7 @@ struct InvoiceRow: View {
                     
                     if invoice.overdue {
                         Label {
-                            Text("\(invoice.days_overdue) days overdue")
+                            Text("\(invoice.daysOverdue) days overdue")
                                 .font(.caption)
                                 .foregroundColor(.red)
                         } icon: {
@@ -281,37 +281,6 @@ struct InvoiceStatusBadge: View {
     }
 }
 
-// MARK: - Data Models
-struct Invoice: Codable, Identifiable {
-    let id: Int
-    let invoice_number: String
-    let status: String
-    let issue_date: String
-    let due_date: String
-    let total_amount: Double
-    let subtotal: Double
-    let tax_amount: Double
-    let currency: String
-    let billing_period_start: String?
-    let billing_period_end: String?
-    let billing_period_display: String?
-    let overdue: Bool
-    let days_overdue: Int
-    let created_at: String
-    let updated_at: String
-}
-
-struct InvoiceListResponse: Codable {
-    let invoices: [Invoice]
-    let pagination: InvoicePaginationInfo
-}
-
-struct InvoicePaginationInfo: Codable {
-    let current_page: Int
-    let per_page: Int
-    let total_count: Int
-    let total_pages: Int
-}
 
 #Preview {
     InvoicesView()

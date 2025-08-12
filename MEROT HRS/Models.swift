@@ -1,32 +1,6 @@
 import Foundation
 
-struct APIResponse<T: Decodable>: Decodable {
-    let success: Bool
-    let message: String
-    let data: T
-    let errors: [String]?
-}
-
-struct APIErrorResponse: Codable {
-    let success: Bool
-    let message: String
-    let errors: [String]?
-}
-
-
-struct PaginationInfo: Codable {
-    let currentPage: Int
-    let perPage: Int
-    let totalCount: Int
-    let totalPages: Int
-    
-    enum CodingKeys: String, CodingKey {
-        case currentPage = "current_page"
-        case perPage = "per_page"
-        case totalCount = "total_count"
-        case totalPages = "total_pages"
-    }
-}
+// MARK: - User Models
 
 struct User: Codable, Identifiable {
     let id: Int
@@ -45,19 +19,22 @@ struct User: Codable, Identifiable {
     }
 }
 
-struct UserProfileWrapper: Decodable {
+struct UserProfileWrapper: Codable {
     let user: User
 }
 
-struct UserProfileWrapperForAPI: Decodable {
+struct UserProfileWrapperForAPI: Codable {
     let user: UserProfileForAPI
 }
 
-struct UserProfileForAPI: Decodable {
+struct UserProfileForAPI: Codable {
     let id: Int
     let email: String
     let user_type: String
-    let employer: Employer
+    let full_name: String?
+    let roles: [String]?
+    let super_admin: Bool?
+    let employer: Employer?
 }
 
 struct Employer: Codable, Identifiable {
@@ -67,6 +44,12 @@ struct Employer: Codable, Identifiable {
     let primaryEmail: String?
     let billingEmail: String?
     let contactEmail: String?
+    let addressLine1: String?
+    let addressLine2: String?
+    let addressCity: String?
+    let addressState: String?
+    let addressZip: String?
+    let addressCountry: String?
     let createdAt: Date?
     let updatedAt: Date?
     
@@ -76,15 +59,116 @@ struct Employer: Codable, Identifiable {
         case primaryEmail = "primary_email"
         case billingEmail = "billing_email"
         case contactEmail = "contact_email"
+        case addressLine1 = "address_line1"
+        case addressLine2 = "address_line2"
+        case addressCity = "address_city"
+        case addressState = "address_state"
+        case addressZip = "address_zip"
+        case addressCountry = "address_country"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
 }
 
+// MARK: - Detailed Employer Models for Admin
+
+struct DetailedEmployerResponse: Codable {
+    let employer: Employer
+    let statistics: EmployerStatistics
+    let representatives: [EmployerRepresentative]
+    let recentEmployees: [EmployerRecentEmployee]
+    let recentInvoices: [EmployerRecentInvoice]
+    
+    enum CodingKeys: String, CodingKey {
+        case employer, statistics, representatives
+        case recentEmployees = "recent_employees"
+        case recentInvoices = "recent_invoices"
+    }
+}
+
+struct EmployerStatistics: Codable {
+    let totalEmployees: Int
+    let activeEmployees: Int
+    let inactiveEmployees: Int
+    let unpaidInvoicesCount: Int
+    let unpaidInvoicesTotal: Double
+    let overdueInvoicesCount: Int
+    let overdueInvoicesTotal: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case totalEmployees = "total_employees"
+        case activeEmployees = "active_employees"
+        case inactiveEmployees = "inactive_employees"
+        case unpaidInvoicesCount = "unpaid_invoices_count"
+        case unpaidInvoicesTotal = "unpaid_invoices_total"
+        case overdueInvoicesCount = "overdue_invoices_count"
+        case overdueInvoicesTotal = "overdue_invoices_total"
+    }
+    
+}
+
+struct EmployerRepresentative: Codable, Identifiable {
+    let id: Int
+    let email: String
+    let name: String
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, email, name
+        case createdAt = "created_at"
+    }
+}
+
+struct EmployerRecentEmployee: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let email: String
+    let department: String?
+    let position: String?
+    let startDate: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, email, department, position
+        case startDate = "start_date"
+    }
+}
+
+struct EmployerRecentInvoice: Codable, Identifiable {
+    let id: Int
+    let invoiceNumber: String
+    let status: String
+    let totalAmount: Double
+    let dueDate: String?
+    let overdue: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case id, status, overdue
+        case invoiceNumber = "invoice_number"
+        case totalAmount = "total_amount"
+        case dueDate = "due_date"
+    }
+    
+}
+
+// MARK: - API Response Models
+
+struct APIResponse<T: Codable>: Codable {
+    let success: Bool
+    let message: String
+    let data: T
+}
+
+struct APIErrorResponse: Codable {
+    let success: Bool
+    let message: String
+    let errors: [String]?
+}
+
+// MARK: - Basic Models (restored for compatibility)
+
 struct Employee: Codable, Identifiable {
     let id: Int
     let employeeId: String?
-    let fullName: String
     let firstName: String?
     let lastName: String?
     let email: String
@@ -92,7 +176,6 @@ struct Employee: Codable, Identifiable {
     let personalEmail: String?
     let department: String?
     let status: String
-    let onLeave: String?
     let employeeType: String?
     let title: String?
     let location: String?
@@ -100,473 +183,96 @@ struct Employee: Codable, Identifiable {
     let city: String?
     let country: String?
     let postcode: String?
-    let managerId: String?
     let personalIdNumber: String?
     let fullNameCyr: String?
     let cityCyr: String?
     let addressCyr: String?
     let countryCyr: String?
-    let createdAt: Date
-    let updatedAt: Date?
+    let onLeave: Bool?
     let employment: Employment?
     let salaryDetail: SalaryDetail?
-    let employers: [EmployerInfo]?
+    let createdAt: Date
+    let updatedAt: Date
+    
+    var fullName: String {
+        let first = firstName ?? ""
+        let last = lastName ?? ""
+        return "\(first) \(last)".trimmingCharacters(in: .whitespaces)
+    }
     
     enum CodingKeys: String, CodingKey {
-        case id, email, department, status, title, location, employment, address, city, country, postcode, employers
+        case id, email, department, status, title, location, address, city, country, postcode
         case employeeId = "employee_id"
-        case fullName = "full_name"
         case firstName = "first_name"
         case lastName = "last_name"
         case phoneNumber = "phone_number"
         case personalEmail = "personal_email"
-        case onLeave = "on_leave"
         case employeeType = "employee_type"
-        case managerId = "manager_id"
         case personalIdNumber = "personal_id_number"
         case fullNameCyr = "full_name_cyr"
         case cityCyr = "city_cyr"
         case addressCyr = "address_cyr"
         case countryCyr = "country_cyr"
+        case onLeave = "on_leave"
+        case employment
+        case salaryDetail = "salary_detail"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
-        case salaryDetail = "salary_detail"
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        id = try container.decode(Int.self, forKey: .id)
-        employeeId = try container.decodeIfPresent(String.self, forKey: .employeeId)
-        fullName = try container.decode(String.self, forKey: .fullName)
-        firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
-        lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
-        email = try container.decode(String.self, forKey: .email)
-        phoneNumber = try container.decodeIfPresent(String.self, forKey: .phoneNumber)
-        personalEmail = try container.decodeIfPresent(String.self, forKey: .personalEmail)
-        department = try container.decodeIfPresent(String.self, forKey: .department)
-        status = try container.decode(String.self, forKey: .status)
-        onLeave = try container.decodeIfPresent(String.self, forKey: .onLeave)
-        employeeType = try container.decodeIfPresent(String.self, forKey: .employeeType)
-        title = try container.decodeIfPresent(String.self, forKey: .title)
-        location = try container.decodeIfPresent(String.self, forKey: .location)
-        address = try container.decodeIfPresent(String.self, forKey: .address)
-        city = try container.decodeIfPresent(String.self, forKey: .city)
-        country = try container.decodeIfPresent(String.self, forKey: .country)
-        postcode = try container.decodeIfPresent(String.self, forKey: .postcode)
-        managerId = try container.decodeIfPresent(String.self, forKey: .managerId)
-        personalIdNumber = try container.decodeIfPresent(String.self, forKey: .personalIdNumber)
-        fullNameCyr = try container.decodeIfPresent(String.self, forKey: .fullNameCyr)
-        cityCyr = try container.decodeIfPresent(String.self, forKey: .cityCyr)
-        addressCyr = try container.decodeIfPresent(String.self, forKey: .addressCyr)
-        countryCyr = try container.decodeIfPresent(String.self, forKey: .countryCyr)
-        employment = try container.decodeIfPresent(Employment.self, forKey: .employment)
-        salaryDetail = try container.decodeIfPresent(SalaryDetail.self, forKey: .salaryDetail)
-        employers = try container.decodeIfPresent([EmployerInfo].self, forKey: .employers)
-        
-        // Handle date decoding
-        let createdAtString = try container.decode(String.self, forKey: .createdAt)
-        let updatedAtString = try container.decodeIfPresent(String.self, forKey: .updatedAt)
-        
-        // Use DateFormatter for more flexible parsing
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        
-        if let date = formatter.date(from: createdAtString) {
-            createdAt = date
-        } else {
-            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-            createdAt = formatter.date(from: createdAtString) ?? Date()
-        }
-        
-        if let updatedAtString = updatedAtString {
-            if let date = formatter.date(from: updatedAtString) {
-                updatedAt = date
-            } else {
-                formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-                updatedAt = formatter.date(from: updatedAtString)
-            }
-        } else {
-            updatedAt = nil
-        }
     }
 }
 
-struct EmployerInfo: Codable, Identifiable {
-    let id: Int
-    let name: String
-}
-
-struct Employment: Codable, Identifiable {
+struct Employment: Codable {
     let id: Int
     let employmentPosition: String?
     let startDate: Date?
     let endDate: Date?
+    let grossSalary: Double?
     let employmentStatus: String?
-    let grossSalary: String?
-    let employmentFee: String?
     
     enum CodingKeys: String, CodingKey {
         case id
         case employmentPosition = "employment_position"
         case startDate = "start_date"
         case endDate = "end_date"
-        case employmentStatus = "employment_status"
         case grossSalary = "gross_salary"
-        case employmentFee = "employment_fee"
-    }
-    
-    var grossSalaryDouble: Double? {
-        guard let grossSalary = grossSalary else { return nil }
-        return Double(grossSalary)
-    }
-    
-    var employmentFeeDouble: Double? {
-        guard let employmentFee = employmentFee else { return nil }
-        return Double(employmentFee)
+        case employmentStatus = "employment_status"
     }
 }
 
-struct SalaryDetail: Codable, Identifiable {
+struct SalaryDetail: Codable {
     let id: Int
     let baseSalary: Double?
     let hourlySalary: Double?
     let variableSalary: Double?
     let deductions: Double?
-    let grossSalary: Double?
     let netSalary: Double?
+    let grossSalary: Double?
     let seniority: Double?
-    let onMaternity: Bool?
     let bankName: String?
     let bankAccountNumber: String?
-    let createdAt: Date?
-    let updatedAt: Date?
+    let onMaternity: Bool?
     
     enum CodingKeys: String, CodingKey {
-        case id, seniority
+        case id
         case baseSalary = "base_salary"
         case hourlySalary = "hourly_salary"
         case variableSalary = "variable_salary"
-        case deductions = "deductions"
-        case grossSalary = "gross_salary"
+        case deductions
         case netSalary = "net_salary"
-        case onMaternity = "on_maternity"
+        case grossSalary = "gross_salary"
+        case seniority
         case bankName = "bank_name"
         case bankAccountNumber = "bank_account_number"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        id = try container.decode(Int.self, forKey: .id)
-        
-        // Handle salary fields that might be strings or doubles
-        if let baseSalaryString = try? container.decodeIfPresent(String.self, forKey: .baseSalary) {
-            baseSalary = Double(baseSalaryString)
-        } else {
-            baseSalary = try container.decodeIfPresent(Double.self, forKey: .baseSalary)
-        }
-        
-        if let hourlySalaryString = try? container.decodeIfPresent(String.self, forKey: .hourlySalary) {
-            hourlySalary = Double(hourlySalaryString)
-        } else {
-            hourlySalary = try container.decodeIfPresent(Double.self, forKey: .hourlySalary)
-        }
-        
-        if let variableSalaryString = try? container.decodeIfPresent(String.self, forKey: .variableSalary) {
-            variableSalary = Double(variableSalaryString)
-        } else {
-            variableSalary = try container.decodeIfPresent(Double.self, forKey: .variableSalary)
-        }
-        
-        if let deductionsString = try? container.decodeIfPresent(String.self, forKey: .deductions) {
-            deductions = Double(deductionsString)
-        } else {
-            deductions = try container.decodeIfPresent(Double.self, forKey: .deductions)
-        }
-        
-        if let grossSalaryString = try? container.decodeIfPresent(String.self, forKey: .grossSalary) {
-            grossSalary = Double(grossSalaryString)
-        } else {
-            grossSalary = try container.decodeIfPresent(Double.self, forKey: .grossSalary)
-        }
-        
-        if let netSalaryString = try? container.decodeIfPresent(String.self, forKey: .netSalary) {
-            netSalary = Double(netSalaryString)
-        } else {
-            netSalary = try container.decodeIfPresent(Double.self, forKey: .netSalary)
-        }
-        
-        if let seniorityString = try? container.decodeIfPresent(String.self, forKey: .seniority) {
-            seniority = Double(seniorityString)
-        } else {
-            seniority = try container.decodeIfPresent(Double.self, forKey: .seniority)
-        }
-        onMaternity = try container.decodeIfPresent(Bool.self, forKey: .onMaternity)
-        bankName = try container.decodeIfPresent(String.self, forKey: .bankName)
-        bankAccountNumber = try container.decodeIfPresent(String.self, forKey: .bankAccountNumber)
-        
-        // Handle date decoding
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
-        if let createdAtString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
-            if let date = formatter.date(from: createdAtString) {
-                createdAt = date
-            } else {
-                // Try without fractional seconds
-                formatter.formatOptions = [.withInternetDateTime]
-                createdAt = formatter.date(from: createdAtString)
-            }
-        } else {
-            createdAt = nil
-        }
-        
-        if let updatedAtString = try container.decodeIfPresent(String.self, forKey: .updatedAt) {
-            if let date = formatter.date(from: updatedAtString) {
-                updatedAt = date
-            } else {
-                // Try without fractional seconds
-                formatter.formatOptions = [.withInternetDateTime]
-                updatedAt = formatter.date(from: updatedAtString)
-            }
-        } else {
-            updatedAt = nil
-        }
+        case onMaternity = "on_maternity"
     }
 }
-
-struct TimeOffRequest: Codable, Identifiable {
-    let id: Int
-    let startDate: String
-    let endDate: String
-    let days: Int
-    let approvalStatus: String
-    let employee: TimeOffEmployee
-    let timeOffRecord: TimeOffRecord?
-    let createdAt: String
-    let updatedAt: String
-    let approvedByUserId: Int?
-    let approverType: String?
-    let approvalBy: String?
-    
-    enum CodingKeys: String, CodingKey {
-        case id, days, employee
-        case startDate = "start_date"
-        case endDate = "end_date"
-        case approvalStatus = "approval_status"
-        case timeOffRecord = "time_off_record"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case approvedByUserId = "approved_by_user_id"
-        case approverType = "approver_type"
-        case approvalBy = "approval_by"
-    }
-}
-
-struct TimeOffEmployee: Codable, Identifiable {
-    let id: Int
-    let fullName: String
-    let employeeId: String
-    let department: String
-    
-    enum CodingKeys: String, CodingKey {
-        case id, department
-        case fullName = "full_name"
-        case employeeId = "employee_id"
-    }
-}
-
-struct TimeOffRecord: Codable, Identifiable {
-    let id: Int
-    let name: String
-    let leaveType: String?
-    let balance: Int?
-    let totalDays: Int?
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name, balance
-        case leaveType = "leave_type"
-        case totalDays = "total_days"
-    }
-}
-
-struct DashboardData: Codable {
-    let stats: DashboardStats
-    let recentActivities: [DashboardActivity]
-    
-    enum CodingKeys: String, CodingKey {
-        case stats
-        case recentActivities = "recent_activities"
-    }
-}
-
-struct DashboardStats: Codable {
-    let totalEmployees: Int
-    let activeEmployees: Int
-    let pendingTimeOffRequests: Int
-    let employeesOnLeaveToday: Int
-    
-    enum CodingKeys: String, CodingKey {
-        case totalEmployees = "total_employees"
-        case activeEmployees = "active_employees"
-        case pendingTimeOffRequests = "pending_time_off_requests"
-        case employeesOnLeaveToday = "employees_on_leave_today"
-    }
-}
-
-struct DashboardActivity: Codable, Identifiable {
-    let id: Int
-    let type: String
-    let employeeName: String
-    let status: String
-    let startDate: String?
-    let endDate: String?
-    let days: Int?
-    let createdAt: Date
-    
-    enum CodingKeys: String, CodingKey {
-        case id, type, status, days
-        case employeeName = "employee_name"
-        case startDate = "start_date"
-        case endDate = "end_date"
-        case createdAt = "created_at"
-    }
-}
-
-struct EmployeeListResponse: Codable {
-    let employees: [Employee]
-    let pagination: PaginationInfo
-}
-
-struct EmployeeListData: Codable {
-    let employees: [Employee]
-    let pagination: PaginationInfo
-}
-
-struct TimeOffRequestListData: Codable {
-    let timeOffRequests: [TimeOffRequest]
-    let pagination: PaginationInfo
-    
-    enum CodingKeys: String, CodingKey {
-        case timeOffRequests = "time_off_requests"
-        case pagination
-    }
-}
-
-struct TimeOffRequestResponse: Codable {
-    let timeOffRequest: TimeOffRequest
-    
-    enum CodingKeys: String, CodingKey {
-        case timeOffRequest = "time_off_request"
-    }
-}
-
-struct TimeOffStats: Codable {
-    let stats: TimeOffStatsData
-    let employeesOnLeaveToday: [Employee]
-    let upcomingLeave: [TimeOffRequest]
-    
-    enum CodingKeys: String, CodingKey {
-        case stats
-        case employeesOnLeaveToday = "employees_on_leave_today"
-        case upcomingLeave = "upcoming_leave"
-    }
-}
-
-struct TimeOffStatsData: Codable {
-    let totalRequests: Int
-    let pendingRequests: Int
-    let approvedRequests: Int
-    let deniedRequests: Int
-    let employeesOnLeaveToday: Int
-    let upcomingLeave: Int
-    
-    enum CodingKeys: String, CodingKey {
-        case totalRequests = "total_requests"
-        case pendingRequests = "pending_requests"
-        case approvedRequests = "approved_requests"
-        case deniedRequests = "denied_requests"
-        case employeesOnLeaveToday = "employees_on_leave_today"
-        case upcomingLeave = "upcoming_leave"
-    }
-}
-
-struct AnalyticsOverview: Codable {
-    let totalEmployees: Int
-    let byStatus: [String: Int]
-    let byDepartment: [String: Int]
-    let byCountry: [String: Int]
-    let recentHires: [Employee]
-    let contractExpiries: [Employee]
-    
-    enum CodingKeys: String, CodingKey {
-        case totalEmployees = "total_employees"
-        case byStatus = "by_status"
-        case byDepartment = "by_department"
-        case byCountry = "by_country"
-        case recentHires = "recent_hires"
-        case contractExpiries = "contract_expiries"
-    }
-}
-
-struct Holiday: Codable, Identifiable {
-    let id: Int
-    let name: String
-    let date: String
-    let holidayType: String
-    let applicableGroup: String
-    let applicableCountry: String
-    let formattedDate: String
-    let dayOfWeek: String
-    let isWeekend: Bool
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name, date
-        case holidayType = "holiday_type"
-        case applicableGroup = "applicable_group"
-        case applicableCountry = "applicable_country"
-        case formattedDate = "formatted_date"
-        case dayOfWeek = "day_of_week"
-        case isWeekend = "is_weekend"
-    }
-}
-
-struct HolidaysResponse: Codable {
-    let holidays: HolidaysByCountry
-    let period: HolidayPeriod
-}
-
-struct HolidaysByCountry: Codable {
-    let northMacedonia: [Holiday]
-    let kosovo: [Holiday]
-    
-    enum CodingKeys: String, CodingKey {
-        case northMacedonia = "north_macedonia"
-        case kosovo
-    }
-}
-
-struct HolidayPeriod: Codable {
-    let startDate: String
-    let endDate: String
-    
-    enum CodingKeys: String, CodingKey {
-        case startDate = "start_date"
-        case endDate = "end_date"
-    }
-}
-
-// MARK: - Job Posting Models
 
 struct JobPosting: Codable, Identifiable {
     let id: Int
     let title: String
-    let description: String
+    let description: String?
     let department: String?
+    let status: String
     let location: String?
     let employmentType: String?
     let experienceLevel: String?
@@ -574,38 +280,43 @@ struct JobPosting: Codable, Identifiable {
     let salaryMax: Double?
     let salaryCurrency: String?
     let salaryPeriod: String?
+    let positionsAvailable: Int
+    let positionsFilled: Int
+    let applicationsCount: Int?
+    let viewsCount: Int?
+    let requirements: String?
+    let benefits: String?
     let publishedAt: String
     let expiresAt: String?
     let employer: JobPostingEmployer
-    let positionsAvailable: Int
-    let positionsFilled: Int
-    let requirements: String?
-    let benefits: String?
-    let viewsCount: Int?
-    let applicationsCount: Int?
+    let createdAt: Date
+    let updatedAt: Date
     
     enum CodingKeys: String, CodingKey {
-        case id, title, description, department, location, requirements, benefits, employer
+        case id, title, description, department, status, location, requirements, benefits, employer
         case employmentType = "employment_type"
         case experienceLevel = "experience_level"
         case salaryMin = "salary_min"
         case salaryMax = "salary_max"
         case salaryCurrency = "salary_currency"
         case salaryPeriod = "salary_period"
-        case publishedAt = "published_at"
-        case expiresAt = "expires_at"
         case positionsAvailable = "positions_available"
         case positionsFilled = "positions_filled"
-        case viewsCount = "views_count"
         case applicationsCount = "applications_count"
+        case viewsCount = "views_count"
+        case publishedAt = "published_at"
+        case expiresAt = "expires_at"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
     
-    // Memberwise initializer for creating instances programmatically
-    init(id: Int, title: String, description: String, department: String? = nil, location: String? = nil, employmentType: String? = nil, experienceLevel: String? = nil, salaryMin: Double? = nil, salaryMax: Double? = nil, salaryCurrency: String? = nil, salaryPeriod: String? = nil, publishedAt: String, expiresAt: String? = nil, employer: JobPostingEmployer, positionsAvailable: Int, positionsFilled: Int, requirements: String? = nil, benefits: String? = nil, viewsCount: Int? = nil, applicationsCount: Int? = nil) {
+    // Memberwise initializer for manual creation (like in previews)
+    init(id: Int, title: String, description: String?, department: String?, status: String, location: String?, employmentType: String?, experienceLevel: String?, salaryMin: Double?, salaryMax: Double?, salaryCurrency: String?, salaryPeriod: String?, positionsAvailable: Int, positionsFilled: Int, applicationsCount: Int?, viewsCount: Int?, requirements: String?, benefits: String?, publishedAt: String, expiresAt: String?, employer: JobPostingEmployer, createdAt: Date, updatedAt: Date) {
         self.id = id
         self.title = title
         self.description = description
         self.department = department
+        self.status = status
         self.location = location
         self.employmentType = employmentType
         self.experienceLevel = experienceLevel
@@ -613,81 +324,85 @@ struct JobPosting: Codable, Identifiable {
         self.salaryMax = salaryMax
         self.salaryCurrency = salaryCurrency
         self.salaryPeriod = salaryPeriod
+        self.positionsAvailable = positionsAvailable
+        self.positionsFilled = positionsFilled
+        self.applicationsCount = applicationsCount
+        self.viewsCount = viewsCount
+        self.requirements = requirements
+        self.benefits = benefits
         self.publishedAt = publishedAt
         self.expiresAt = expiresAt
         self.employer = employer
-        self.positionsAvailable = positionsAvailable
-        self.positionsFilled = positionsFilled
-        self.requirements = requirements
-        self.benefits = benefits
-        self.viewsCount = viewsCount
-        self.applicationsCount = applicationsCount
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
     
+    // Custom decoder for handling salary fields that might come as strings
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         id = try container.decode(Int.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
-        description = try container.decode(String.self, forKey: .description)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
         department = try container.decodeIfPresent(String.self, forKey: .department)
+        status = try container.decode(String.self, forKey: .status)
         location = try container.decodeIfPresent(String.self, forKey: .location)
         employmentType = try container.decodeIfPresent(String.self, forKey: .employmentType)
         experienceLevel = try container.decodeIfPresent(String.self, forKey: .experienceLevel)
-        salaryCurrency = try container.decodeIfPresent(String.self, forKey: .salaryCurrency)
-        salaryPeriod = try container.decodeIfPresent(String.self, forKey: .salaryPeriod)
-        publishedAt = try container.decode(String.self, forKey: .publishedAt)
-        expiresAt = try container.decodeIfPresent(String.self, forKey: .expiresAt)
-        employer = try container.decode(JobPostingEmployer.self, forKey: .employer)
-        positionsAvailable = try container.decode(Int.self, forKey: .positionsAvailable)
-        positionsFilled = try container.decode(Int.self, forKey: .positionsFilled)
-        requirements = try container.decodeIfPresent(String.self, forKey: .requirements)
-        benefits = try container.decodeIfPresent(String.self, forKey: .benefits)
-        viewsCount = try container.decodeIfPresent(Int.self, forKey: .viewsCount)
-        applicationsCount = try container.decodeIfPresent(Int.self, forKey: .applicationsCount)
         
-        // Handle salary fields that might be strings or doubles
-        if let salaryMinString = try container.decodeIfPresent(String.self, forKey: .salaryMin) {
+        // Handle salary fields that might come as strings or numbers
+        if let salaryMinString = try? container.decodeIfPresent(String.self, forKey: .salaryMin) {
             salaryMin = Double(salaryMinString)
         } else {
             salaryMin = try container.decodeIfPresent(Double.self, forKey: .salaryMin)
         }
         
-        if let salaryMaxString = try container.decodeIfPresent(String.self, forKey: .salaryMax) {
+        if let salaryMaxString = try? container.decodeIfPresent(String.self, forKey: .salaryMax) {
             salaryMax = Double(salaryMaxString)
         } else {
             salaryMax = try container.decodeIfPresent(Double.self, forKey: .salaryMax)
         }
+        
+        salaryCurrency = try container.decodeIfPresent(String.self, forKey: .salaryCurrency)
+        salaryPeriod = try container.decodeIfPresent(String.self, forKey: .salaryPeriod)
+        positionsAvailable = try container.decode(Int.self, forKey: .positionsAvailable)
+        positionsFilled = try container.decode(Int.self, forKey: .positionsFilled)
+        applicationsCount = try container.decodeIfPresent(Int.self, forKey: .applicationsCount)
+        viewsCount = try container.decodeIfPresent(Int.self, forKey: .viewsCount)
+        requirements = try container.decodeIfPresent(String.self, forKey: .requirements)
+        benefits = try container.decodeIfPresent(String.self, forKey: .benefits)
+        publishedAt = try container.decode(String.self, forKey: .publishedAt)
+        expiresAt = try container.decodeIfPresent(String.self, forKey: .expiresAt)
+        employer = try container.decode(JobPostingEmployer.self, forKey: .employer)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 }
 
 struct JobPostingEmployer: Codable {
     let id: Int
-    let name: String
-    let location: String?
+    let name: String?
 }
 
-struct JobPostingsResponse: Codable {
-    let jobPostings: [JobPosting]
-    let pagination: PaginationInfo
-    let filters: JobPostingFilters?
+struct JobApplication: Codable, Identifiable {
+    let id: Int
+    let firstName: String
+    let lastName: String
+    let email: String
+    let status: String
+    let createdAt: Date
+    let updatedAt: Date
     
-    enum CodingKeys: String, CodingKey {
-        case jobPostings = "job_postings"
-        case pagination, filters
+    var fullName: String {
+        return "\(firstName) \(lastName)"
     }
-}
-
-struct JobPostingFilters: Codable {
-    let employmentTypes: [String]
-    let experienceLevels: [String]
-    let locations: [String]
-    let departments: [String]
     
     enum CodingKeys: String, CodingKey {
-        case employmentTypes = "employment_types"
-        case experienceLevels = "experience_levels"
-        case locations, departments
+        case id, email, status
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
 
@@ -708,38 +423,14 @@ struct AdminStats: Codable {
     let activeEmployees: Int
     let activeInvoices: Int?
     let monthlyRevenue: Double?
+    let recentEmployers: [RecentEmployer]?
     
     enum CodingKeys: String, CodingKey {
         case totalEmployers = "total_employers"
-        case totalEmployees = "total_employees"
         case activeEmployees = "active_employees"
         case activeInvoices = "active_invoices"
         case monthlyRevenue = "monthly_revenue"
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        totalEmployers = try container.decode(Int.self, forKey: .totalEmployers)
-        activeInvoices = try container.decodeIfPresent(Int.self, forKey: .activeInvoices)
-        monthlyRevenue = try container.decodeIfPresent(Double.self, forKey: .monthlyRevenue)
-        
-        // Handle both field names for backward compatibility
-        if let activeEmployeesCount = try container.decodeIfPresent(Int.self, forKey: .activeEmployees) {
-            activeEmployees = activeEmployeesCount
-        } else if let totalEmployeesCount = try container.decodeIfPresent(Int.self, forKey: .totalEmployees) {
-            activeEmployees = totalEmployeesCount
-        } else {
-            activeEmployees = 0
-        }
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(totalEmployers, forKey: .totalEmployers)
-        try container.encode(activeEmployees, forKey: .activeEmployees)
-        try container.encodeIfPresent(activeInvoices, forKey: .activeInvoices)
-        try container.encodeIfPresent(monthlyRevenue, forKey: .monthlyRevenue)
+        case recentEmployers = "recent_employers"
     }
 }
 
@@ -747,58 +438,313 @@ struct RecentEmployer: Codable, Identifiable {
     let id: Int
     let name: String
     let employeeCount: Int
-    let status: String
     let createdAt: Date
+    let status: String
     
     enum CodingKeys: String, CodingKey {
         case id, name, status
         case employeeCount = "employee_count"
         case createdAt = "created_at"
     }
+}
+
+struct DashboardData: Codable {
+    let stats: DashboardStats
+}
+
+struct DashboardStats: Codable {
+    let totalEmployees: Int
+    let activeEmployees: Int?
+    let pendingTimeOffRequests: Int?
+    let employeesOnLeaveToday: Int?
+    let recentActivities: [DashboardActivity]?
     
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        id = try container.decode(Int.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        employeeCount = try container.decode(Int.self, forKey: .employeeCount)
-        status = try container.decode(String.self, forKey: .status)
-        
-        // Handle createdAt with custom date parsing for better error handling
-        if let createdAtString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
-            print("RecentEmployer: Attempting to parse date string: \(createdAtString)")
-            
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            
-            if let date = formatter.date(from: createdAtString) {
-                createdAt = date
-                print("RecentEmployer: Successfully parsed date with fractional seconds")
-            } else {
-                // Fallback to a simpler ISO8601 format
-                formatter.formatOptions = [.withInternetDateTime]
-                if let date = formatter.date(from: createdAtString) {
-                    createdAt = date
-                    print("RecentEmployer: Successfully parsed date without fractional seconds")
-                } else {
-                    // Try basic date formats as fallbacks
-                    let basicFormatter = DateFormatter()
-                    basicFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-                    if let date = basicFormatter.date(from: createdAtString) {
-                        createdAt = date
-                        print("RecentEmployer: Successfully parsed date with basic formatter")
-                    } else {
-                        // Last resort: use current date to prevent crash
-                        print("RecentEmployer: Failed to parse date '\(createdAtString)', using current date")
-                        createdAt = Date()
-                    }
-                }
-            }
-        } else {
-            // If createdAt is missing, use current date to prevent crash
-            print("RecentEmployer: createdAt field missing, using current date")
-            createdAt = Date()
-        }
+    enum CodingKeys: String, CodingKey {
+        case totalEmployees = "total_employees"
+        case activeEmployees = "active_employees"
+        case pendingTimeOffRequests = "pending_time_off_requests"
+        case employeesOnLeaveToday = "employees_on_leave_today"
+        case recentActivities = "recent_activities"
+    }
+}
+
+struct DashboardActivity: Codable, Identifiable {
+    let id: Int
+    let type: String
+    let message: String
+    let timestamp: Date
+    let employeeName: String?
+    let startDate: Date?
+    let endDate: Date?
+    let status: String?
+    let days: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, type, message, timestamp, status, days
+        case employeeName = "employee_name"
+        case startDate = "start_date"
+        case endDate = "end_date"
+    }
+}
+
+// MARK: - Invoice Models
+
+struct Invoice: Codable, Identifiable {
+    let id: Int
+    let invoiceNumber: String
+    let status: String
+    let issueDate: String
+    let dueDate: String
+    let totalAmount: Double
+    let subtotal: Double
+    let taxAmount: Double
+    let discountAmount: Double?
+    let lateFee: Double?
+    let currency: String
+    let billingPeriodStart: String?
+    let billingPeriodEnd: String?
+    let billingPeriodDisplay: String?
+    let totalEmployees: Int?
+    let payrollProcessingFee: Double?
+    let hrServicesFee: Double?
+    let benefitsAdministrationFee: Double?
+    let overdue: Bool
+    let daysOverdue: Int
+    let createdAt: String
+    let updatedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, status, currency, overdue, subtotal
+        case invoiceNumber = "invoice_number"
+        case issueDate = "issue_date"
+        case dueDate = "due_date"
+        case totalAmount = "total_amount"
+        case taxAmount = "tax_amount"
+        case discountAmount = "discount_amount"
+        case lateFee = "late_fee"
+        case billingPeriodStart = "billing_period_start"
+        case billingPeriodEnd = "billing_period_end"
+        case billingPeriodDisplay = "billing_period_display"
+        case totalEmployees = "total_employees"
+        case payrollProcessingFee = "payroll_processing_fee"
+        case hrServicesFee = "hr_services_fee"
+        case benefitsAdministrationFee = "benefits_administration_fee"
+        case daysOverdue = "days_overdue"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct DetailedInvoice: Codable, Identifiable {
+    let id: Int
+    let invoiceNumber: String
+    let status: String
+    let issueDate: String
+    let dueDate: String
+    let totalAmount: Double
+    let subtotal: Double
+    let taxAmount: Double
+    let discountAmount: Double?
+    let lateFee: Double?
+    let currency: String
+    let billingPeriodStart: String?
+    let billingPeriodEnd: String?
+    let billingPeriodDisplay: String?
+    let totalEmployees: Int?
+    let payrollProcessingFee: Double?
+    let hrServicesFee: Double?
+    let benefitsAdministrationFee: Double?
+    let overdue: Bool
+    let daysOverdue: Int
+    let lineItems: [InvoiceLineItem]
+    let createdAt: String
+    let updatedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, status, currency, overdue, subtotal
+        case invoiceNumber = "invoice_number"
+        case issueDate = "issue_date"
+        case dueDate = "due_date"
+        case totalAmount = "total_amount"
+        case taxAmount = "tax_amount"
+        case discountAmount = "discount_amount"
+        case lateFee = "late_fee"
+        case billingPeriodStart = "billing_period_start"
+        case billingPeriodEnd = "billing_period_end"
+        case billingPeriodDisplay = "billing_period_display"
+        case totalEmployees = "total_employees"
+        case payrollProcessingFee = "payroll_processing_fee"
+        case hrServicesFee = "hr_services_fee"
+        case benefitsAdministrationFee = "benefits_administration_fee"
+        case daysOverdue = "days_overdue"
+        case lineItems = "line_items"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct InvoiceLineItem: Codable, Identifiable {
+    let id: Int
+    let description: String
+    let quantity: Int
+    let unitPrice: Double
+    let totalPrice: Double
+    let lineItemType: String?
+    let serviceCategory: String?
+    let employeeName: String?
+    let employeeId: String?
+    let serviceDate: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, description, quantity, serviceDate
+        case unitPrice = "unit_price"
+        case totalPrice = "total_price"
+        case lineItemType = "line_item_type"
+        case serviceCategory = "service_category"
+        case employeeName = "employee_name"
+        case employeeId = "employee_id"
+    }
+}
+
+struct InvoiceListResponse: Codable {
+    let invoices: [Invoice]
+    let pagination: PaginationInfo
+}
+
+struct PaginationInfo: Codable {
+    let currentPage: Int
+    let perPage: Int
+    let totalCount: Int
+    let totalPages: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case currentPage = "current_page"
+        case perPage = "per_page"
+        case totalCount = "total_count"
+        case totalPages = "total_pages"
+    }
+}
+
+// MARK: - Additional Models
+
+struct TimeOffRequest: Codable, Identifiable {
+    let id: Int
+    let employeeName: String?
+    let employee: Employee?
+    let startDate: Date
+    let endDate: Date
+    let leaveType: String
+    let reason: String?
+    let status: String
+    let approvalStatus: String?
+    let days: Int?
+    let timeOffRecord: TimeOffRecord?
+    let createdAt: Date
+    let updatedAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, reason, status, employee, days
+        case employeeName = "employee_name"
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case leaveType = "leave_type"
+        case approvalStatus = "approval_status"
+        case timeOffRecord = "time_off_record"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct TimeOffRecord: Codable {
+    let id: Int?
+    let leaveType: String?
+    let startDate: Date?
+    let endDate: Date?
+    let status: String?
+    let balance: Int?
+    let createdAt: Date?
+    let updatedAt: Date?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, status, balance
+        case leaveType = "leave_type"
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct Holiday: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let date: Date
+    let country: String
+    let holidayType: String?
+    let applicableGroup: String?
+    let isWeekend: Bool?
+    let dayOfWeek: String?
+    let createdAt: Date
+    let updatedAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, date, country
+        case holidayType = "holiday_type"
+        case applicableGroup = "applicable_group"
+        case isWeekend = "is_weekend"
+        case dayOfWeek = "day_of_week"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct HolidaysResponse: Codable {
+    let holidays: [Holiday]
+}
+
+struct EmployeeListResponse: Codable {
+    let employees: [Employee]
+    let pagination: PaginationInfo
+}
+
+struct EmployeeListData: Codable {
+    let employees: [Employee]
+    let pagination: PaginationInfo
+}
+
+struct AnalyticsOverview: Codable {
+    let totalRevenue: Double?
+    let totalEmployees: Int
+    let averageSalary: Double?
+    let activeContracts: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case totalRevenue = "total_revenue"
+        case totalEmployees = "total_employees"
+        case averageSalary = "average_salary"
+        case activeContracts = "active_contracts"
+    }
+}
+
+struct TimeOffStats: Codable {
+    let totalRequests: Int
+    let pendingRequests: Int
+    let approvedRequests: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case totalRequests = "total_requests"
+        case pendingRequests = "pending_requests"
+        case approvedRequests = "approved_requests"
+    }
+}
+
+struct JobPostingsResponse: Codable {
+    let jobPostings: [JobPosting]
+    let pagination: PaginationInfo
+    
+    enum CodingKeys: String, CodingKey {
+        case jobPostings = "job_postings"
+        case pagination
     }
 }
 
@@ -807,53 +753,80 @@ struct SystemAlert: Codable, Identifiable {
     let type: String
     let message: String
     let timestamp: Date
+}
+
+// MARK: - Missing Response Types
+
+struct EmployerProfileData: Codable {
+    let employer: EmployerData
+    let employer_user: EmployerUserData
+    let profile_stats: ProfileStatsData
     
     enum CodingKeys: String, CodingKey {
-        case id, type, message
-        case timestamp
+        case employer
+        case employer_user
+        case profile_stats
     }
+}
+
+struct EmployerData: Codable {
+    let id: Int
+    let name: String?
+    let legal_name: String?
+    let address_line1: String?
+    let address_city: String?
+    let address_state: String?
+    let address_zip: String?
+    let full_address: String?
+    let authorized_representative_name: String?
+    let authorized_officer_name: String?
+    let primary_email: String?
+    let billing_email: String?
+    let contact_email: String?
+    let email: String?
+    let stripe_customer_id: String?
+    let total_employees: Int?
+    let total_outstanding_amount: Double?
+    let total_paid_amount: Double?
+    let created_at: String
+    let updated_at: String
+}
+
+struct EmployerUserData: Codable {
+    let id: Int
+    let email: String?
+    let first_name: String?
+    let last_name: String?
+    let full_name: String?
+    let employer_id: Int
+    let created_at: String
+    let updated_at: String
+}
+
+struct ProfileStatsData: Codable {
+    let total_active_employees: Int
+    let total_inactive_employees: Int
+    let pending_time_off_requests: Int
+    let approved_time_off_requests_this_month: Int
+    let total_payroll_records: Int
+    let recent_invoices_count: Int
+    let outstanding_invoices_count: Int
+}
+
+struct TimeOffRequestListData: Codable {
+    let timeOffRequests: [TimeOffRequest]
+    let pagination: PaginationInfo
     
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        id = try container.decode(Int.self, forKey: .id)
-        type = try container.decode(String.self, forKey: .type)
-        message = try container.decode(String.self, forKey: .message)
-        
-        // Handle timestamp with custom date parsing for better error handling
-        if let timestampString = try container.decodeIfPresent(String.self, forKey: .timestamp) {
-            print("SystemAlert: Attempting to parse timestamp string: \(timestampString)")
-            
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            
-            if let date = formatter.date(from: timestampString) {
-                timestamp = date
-                print("SystemAlert: Successfully parsed timestamp with fractional seconds")
-            } else {
-                // Fallback to a simpler ISO8601 format
-                formatter.formatOptions = [.withInternetDateTime]
-                if let date = formatter.date(from: timestampString) {
-                    timestamp = date
-                    print("SystemAlert: Successfully parsed timestamp without fractional seconds")
-                } else {
-                    // Try basic date formats as fallbacks
-                    let basicFormatter = DateFormatter()
-                    basicFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-                    if let date = basicFormatter.date(from: timestampString) {
-                        timestamp = date
-                        print("SystemAlert: Successfully parsed timestamp with basic formatter")
-                    } else {
-                        // Last resort: use current date to prevent crash
-                        print("SystemAlert: Failed to parse timestamp '\(timestampString)', using current date")
-                        timestamp = Date()
-                    }
-                }
-            }
-        } else {
-            // If timestamp is missing, use current date to prevent crash
-            print("SystemAlert: timestamp field missing, using current date")
-            timestamp = Date()
-        }
+    enum CodingKeys: String, CodingKey {
+        case timeOffRequests = "time_off_requests"
+        case pagination
+    }
+}
+
+struct TimeOffRequestResponse: Codable {
+    let timeOffRequest: TimeOffRequest
+    
+    enum CodingKeys: String, CodingKey {
+        case timeOffRequest = "time_off_request"
     }
 }

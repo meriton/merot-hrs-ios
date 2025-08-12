@@ -22,7 +22,7 @@ struct JobPostingDetailView: View {
                                     .font(.title2)
                                     .fontWeight(.bold)
                                 
-                                Text(displayJobPosting.employer.name)
+                                Text(displayJobPosting.employer.name ?? "Unknown Company")
                                     .font(.title3)
                                     .foregroundColor(.secondary)
                             }
@@ -147,7 +147,7 @@ struct JobPostingDetailView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        Text(displayJobPosting.description)
+                        Text(displayJobPosting.description ?? "No description available")
                             .font(.body)
                     }
                     .padding()
@@ -267,21 +267,24 @@ struct JobPostingDetailView: View {
         title: "Senior iOS Developer",
         description: "We are looking for an experienced iOS developer to join our team and help build amazing mobile applications.",
         department: "Engineering",
-        location: "Remote",
+        status: "active",
+        location: "San Francisco, CA",
         employmentType: "full_time",
         experienceLevel: "senior",
-        salaryMin: 80000,
-        salaryMax: 120000,
+        salaryMin: 120000,
+        salaryMax: 160000,
         salaryCurrency: "USD",
         salaryPeriod: "yearly",
-        publishedAt: "2025-01-15T00:00:00Z",
-        expiresAt: nil,
-        employer: JobPostingEmployer(id: 1, name: "MEROT", location: "Remote"),
         positionsAvailable: 2,
         positionsFilled: 0,
-        requirements: "3+ years of iOS development experience with Swift and UIKit/SwiftUI",
-        benefits: "Health insurance, 401k, flexible hours, remote work",
-        viewsCount: 150,
-        applicationsCount: 12
+        applicationsCount: 15,
+        viewsCount: 245,
+        requirements: "5+ years of iOS development experience, Swift proficiency",
+        benefits: "Health insurance, 401k matching, flexible PTO",
+        publishedAt: "2024-01-15T10:00:00Z",
+        expiresAt: "2024-03-15T10:00:00Z",
+        employer: JobPostingEmployer(id: 1, name: "TechCorp Inc"),
+        createdAt: Date(),
+        updatedAt: Date()
     ))
 }

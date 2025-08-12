@@ -34,8 +34,8 @@ struct InvoiceDetailView: View {
                                 InvoiceSummaryCard(invoice: detailedInvoice)
                                 
                                 // Line Items Section
-                                if !detailedInvoice.line_items.isEmpty {
-                                    LineItemsCard(lineItems: detailedInvoice.line_items)
+                                if !detailedInvoice.lineItems.isEmpty {
+                                    LineItemsCard(lineItems: detailedInvoice.lineItems)
                                 }
                                 
                                 // Payment Information
@@ -104,7 +104,7 @@ struct InvoiceDetailView: View {
             if let pdfData = pdfDataToShare {
                 PDFViewerSheet(
                     pdfData: pdfData, 
-                    fileName: "invoice_\(invoice.invoice_number).pdf"
+                    fileName: "invoice_\(invoice.invoiceNumber).pdf"
                 ) {
                     showingShareSheet = true
                 }
@@ -233,7 +233,7 @@ struct BasicInvoiceHeaderCard: View {
                     Text("Invoice")
                         .font(.title2)
                         .fontWeight(.bold)
-                    Text(invoice.invoice_number)
+                    Text(invoice.invoiceNumber)
                         .font(.title3)
                         .foregroundColor(.merotBlue)
                 }
@@ -244,9 +244,9 @@ struct BasicInvoiceHeaderCard: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                DetailRow(label: "Issue Date", value: formatDate(invoice.issue_date))
-                DetailRow(label: "Due Date", value: formatDate(invoice.due_date))
-                if let billingPeriod = invoice.billing_period_display {
+                DetailRow(label: "Issue Date", value: formatDate(invoice.issueDate))
+                DetailRow(label: "Due Date", value: formatDate(invoice.dueDate))
+                if let billingPeriod = invoice.billingPeriodDisplay {
                     DetailRow(label: "Billing Period", value: billingPeriod)
                 }
             }
@@ -255,7 +255,7 @@ struct BasicInvoiceHeaderCard: View {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
-                    Text("This invoice is \(invoice.days_overdue) days overdue")
+                    Text("This invoice is \(invoice.daysOverdue) days overdue")
                         .font(.subheadline)
                         .foregroundColor(.red)
                         .fontWeight(.medium)
@@ -293,7 +293,7 @@ struct InvoiceHeaderCard: View {
                     Text("Invoice")
                         .font(.title2)
                         .fontWeight(.bold)
-                    Text(invoice.invoice_number)
+                    Text(invoice.invoiceNumber)
                         .font(.title3)
                         .foregroundColor(.merotBlue)
                 }
@@ -304,9 +304,9 @@ struct InvoiceHeaderCard: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                DetailRow(label: "Issue Date", value: formatDate(invoice.issue_date))
-                DetailRow(label: "Due Date", value: formatDate(invoice.due_date))
-                if let billingPeriod = invoice.billing_period_display {
+                DetailRow(label: "Issue Date", value: formatDate(invoice.issueDate))
+                DetailRow(label: "Due Date", value: formatDate(invoice.dueDate))
+                if let billingPeriod = invoice.billingPeriodDisplay {
                     DetailRow(label: "Billing Period", value: billingPeriod)
                 }
             }
@@ -315,7 +315,7 @@ struct InvoiceHeaderCard: View {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
-                    Text("This invoice is \(invoice.days_overdue) days overdue")
+                    Text("This invoice is \(invoice.daysOverdue) days overdue")
                         .font(.subheadline)
                         .foregroundColor(.red)
                         .fontWeight(.medium)
@@ -355,21 +355,21 @@ struct InvoiceSummaryCard: View {
             VStack(spacing: 8) {
                 SummaryRow(label: "Subtotal", amount: invoice.subtotal)
                 
-                if invoice.discount_amount > 0 {
-                    SummaryRow(label: "Discount", amount: -invoice.discount_amount, isDiscount: true)
+                if let discountAmount = invoice.discountAmount, discountAmount > 0 {
+                    SummaryRow(label: "Discount", amount: -discountAmount, isDiscount: true)
                 }
                 
-                if invoice.tax_amount > 0 {
-                    SummaryRow(label: "Tax", amount: invoice.tax_amount)
+                if invoice.taxAmount > 0 {
+                    SummaryRow(label: "Tax", amount: invoice.taxAmount)
                 }
                 
-                if invoice.late_fee > 0 {
-                    SummaryRow(label: "Late Fee", amount: invoice.late_fee, isLateFee: true)
+                if let lateFee = invoice.lateFee, lateFee > 0 {
+                    SummaryRow(label: "Late Fee", amount: lateFee, isLateFee: true)
                 }
                 
                 Divider()
                 
-                SummaryRow(label: "Total", amount: invoice.total_amount, isTotal: true)
+                SummaryRow(label: "Total", amount: invoice.totalAmount, isTotal: true)
             }
         }
         .padding()
@@ -420,17 +420,17 @@ struct PaymentInfoCard: View {
                 .fontWeight(.semibold)
             
             VStack(alignment: .leading, spacing: 8) {
-                DetailRow(label: "Total Employees", value: "\(invoice.total_employees ?? 0)")
+                DetailRow(label: "Total Employees", value: "\(invoice.totalEmployees ?? 0)")
                 
-                if let payrollFee = invoice.payroll_processing_fee, payrollFee > 0 {
+                if let payrollFee = invoice.payrollProcessingFee, payrollFee > 0 {
                     DetailRow(label: "Payroll Processing Fee", value: String(format: "$%.2f", payrollFee))
                 }
                 
-                if let hrFee = invoice.hr_services_fee, hrFee > 0 {
+                if let hrFee = invoice.hrServicesFee, hrFee > 0 {
                     DetailRow(label: "HR Services Fee", value: String(format: "$%.2f", hrFee))
                 }
                 
-                if let benefitsFee = invoice.benefits_administration_fee, benefitsFee > 0 {
+                if let benefitsFee = invoice.benefitsAdministrationFee, benefitsFee > 0 {
                     DetailRow(label: "Benefits Administration Fee", value: String(format: "$%.2f", benefitsFee))
                 }
                 
@@ -501,19 +501,19 @@ struct LineItemRow: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                 Spacer()
-                Text(String(format: "$%.2f", item.total_price))
+                Text(String(format: "$%.2f", item.totalPrice))
                     .font(.subheadline)
                     .fontWeight(.medium)
             }
             
             HStack {
-                Text("Qty: \(item.quantity) × $\(String(format: "%.2f", item.unit_price))")
+                Text("Qty: \(item.quantity) × $\(String(format: "%.2f", item.unitPrice))")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
                 Spacer()
                 
-                if let employeeName = item.employee_name {
+                if let employeeName = item.employeeName {
                     Text(employeeName)
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -523,45 +523,6 @@ struct LineItemRow: View {
     }
 }
 
-// MARK: - Data Models
-struct DetailedInvoice: Codable {
-    let id: Int
-    let invoice_number: String
-    let status: String
-    let issue_date: String
-    let due_date: String
-    let total_amount: Double
-    let subtotal: Double
-    let tax_amount: Double
-    let discount_amount: Double
-    let late_fee: Double
-    let currency: String
-    let billing_period_start: String?
-    let billing_period_end: String?
-    let billing_period_display: String?
-    let total_employees: Int?
-    let payroll_processing_fee: Double?
-    let hr_services_fee: Double?
-    let benefits_administration_fee: Double?
-    let overdue: Bool
-    let days_overdue: Int
-    let line_items: [InvoiceLineItem]
-    let created_at: String
-    let updated_at: String
-}
-
-struct InvoiceLineItem: Codable {
-    let id: Int
-    let description: String
-    let quantity: Int
-    let unit_price: Double
-    let total_price: Double
-    let line_item_type: String?
-    let service_category: String?
-    let employee_name: String?
-    let employee_id: String?
-    let service_date: String?
-}
 
 struct InvoiceTotalCard: View {
     let invoice: DetailedInvoice
@@ -585,38 +546,38 @@ struct InvoiceTotalCard: View {
                         .fontWeight(.medium)
                 }
                 
-                if invoice.tax_amount > 0 {
+                if invoice.taxAmount > 0 {
                     HStack {
                         Text("Tax")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "$%.2f", invoice.tax_amount))
+                        Text(String(format: "$%.2f", invoice.taxAmount))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
                 }
                 
-                if invoice.discount_amount > 0 {
+                if (invoice.discountAmount ?? 0) > 0 {
                     HStack {
                         Text("Discount")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "-$%.2f", invoice.discount_amount))
+                        Text(String(format: "-$%.2f", invoice.discountAmount ?? 0))
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(.green)
                     }
                 }
                 
-                if invoice.late_fee > 0 {
+                if (invoice.lateFee ?? 0) > 0 {
                     HStack {
                         Text("Late Fee")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "$%.2f", invoice.late_fee))
+                        Text(String(format: "$%.2f", invoice.lateFee ?? 0))
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(.red)
@@ -630,7 +591,7 @@ struct InvoiceTotalCard: View {
                         .font(.title3)
                         .fontWeight(.bold)
                     Spacer()
-                    Text(String(format: "$%.2f", invoice.total_amount))
+                    Text(String(format: "$%.2f", invoice.totalAmount))
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.merotBlue)
@@ -668,13 +629,13 @@ struct BasicInvoiceTotalCard: View {
                         .fontWeight(.medium)
                 }
                 
-                if invoice.tax_amount > 0 {
+                if invoice.taxAmount > 0 {
                     HStack {
                         Text("Tax")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "$%.2f", invoice.tax_amount))
+                        Text(String(format: "$%.2f", invoice.taxAmount))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
@@ -687,7 +648,7 @@ struct BasicInvoiceTotalCard: View {
                         .font(.title3)
                         .fontWeight(.bold)
                     Spacer()
-                    Text(String(format: "$%.2f", invoice.total_amount))
+                    Text(String(format: "$%.2f", invoice.totalAmount))
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.merotBlue)
@@ -706,20 +667,26 @@ struct BasicInvoiceTotalCard: View {
 #Preview {
     InvoiceDetailView(invoice: Invoice(
         id: 1,
-        invoice_number: "INV-2025-001",
+        invoiceNumber: "INV-2025-001",
         status: "sent",
-        issue_date: "2025-07-01T00:00:00Z",
-        due_date: "2025-07-15T00:00:00Z",
-        total_amount: 1500.00,
+        issueDate: "2025-07-01T00:00:00Z",
+        dueDate: "2025-07-15T00:00:00Z",
+        totalAmount: 1500.00,
         subtotal: 1350.00,
-        tax_amount: 150.00,
+        taxAmount: 150.00,
+        discountAmount: 0.0,
+        lateFee: 0.0,
         currency: "USD",
-        billing_period_start: "2025-06-01",
-        billing_period_end: "2025-06-30",
-        billing_period_display: "June 2025",
+        billingPeriodStart: "2025-06-01",
+        billingPeriodEnd: "2025-06-30",
+        billingPeriodDisplay: "June 2025",
+        totalEmployees: 5,
+        payrollProcessingFee: 125.0,
+        hrServicesFee: 100.0,
+        benefitsAdministrationFee: 50.0,
         overdue: false,
-        days_overdue: 0,
-        created_at: "2025-07-01T00:00:00Z",
-        updated_at: "2025-07-01T00:00:00Z"
+        daysOverdue: 0,
+        createdAt: "2025-07-01T00:00:00Z",
+        updatedAt: "2025-07-01T00:00:00Z"
     ))
 }

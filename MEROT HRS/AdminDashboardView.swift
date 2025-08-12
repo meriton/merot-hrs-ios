@@ -23,11 +23,11 @@ struct AdminDashboardView: View {
                 }
                 .tag(1)
             
-            // Employers Tab
-            AdminEmployersView()
+            // Invoices Tab
+            InvoicesView()
                 .tabItem {
-                    Image(systemName: "building.2")
-                    Text("Employers")
+                    Image(systemName: "doc.text")
+                    Text("Invoices")
                 }
                 .tag(2)
             
@@ -39,13 +39,21 @@ struct AdminDashboardView: View {
                 }
                 .tag(3)
             
+            // Employers Tab
+            AdminEmployersView()
+                .tabItem {
+                    Image(systemName: "building.2")
+                    Text("Employers")
+                }
+                .tag(4)
+            
             // Settings Tab
             AdminSettingsView()
                 .tabItem {
                     Image(systemName: "gear")
                     Text("Settings")
                 }
-                .tag(4)
+                .tag(5)
         }
     }
 }
@@ -681,40 +689,72 @@ struct EmployerRow: View {
 struct EmployerDetailView: View {
     let employer: Employer
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var apiService = APIService()
+    @State private var detailedEmployerInfo: DetailedEmployerResponse?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
     
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(employer.name ?? "Unnamed Employer")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
+                if let errorMessage = errorMessage {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 48))
+                            .foregroundColor(.orange)
                         
-                        if let email = employer.primaryEmail {
-                            Label(email, systemImage: "envelope")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Divider()
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Details")
+                        Text("Failed to Load Details")
                             .font(.headline)
                         
-                        DetailRow(label: "Employer ID", value: "\(employer.id ?? 0)")
+                        Text(errorMessage)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                         
-                        if let createdAt = employer.createdAt {
-                            DetailRow(label: "Created", value: createdAt.formatted(date: .abbreviated, time: .shortened))
+                        Button("Try Again") {
+                            Task { await loadEmployerDetails() }
+                        }
+                        .buttonStyle(MerotButtonStyle())
+                    }
+                    .padding()
+                } else if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Loading employer details...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+                } else if let detailedInfo = detailedEmployerInfo {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Header Section
+                        EmployerHeaderCard(employer: detailedInfo.employer)
+                        
+                        // Statistics Overview
+                        EmployerStatisticsCard(statistics: detailedInfo.statistics)
+                        
+                        // Contact Information
+                        EmployerContactCard(employer: detailedInfo.employer)
+                        
+                        // Representatives
+                        if !detailedInfo.representatives.isEmpty {
+                            EmployerRepresentativesCard(representatives: detailedInfo.representatives)
                         }
                         
-                        if let updatedAt = employer.updatedAt {
-                            DetailRow(label: "Last Updated", value: updatedAt.formatted(date: .abbreviated, time: .shortened))
+                        // Recent Employees
+                        if !detailedInfo.recentEmployees.isEmpty {
+                            RecentEmployeesCard(employees: detailedInfo.recentEmployees)
+                        }
+                        
+                        // Recent Invoices (Including Unpaid)
+                        if !detailedInfo.recentInvoices.isEmpty {
+                            RecentInvoicesCard(invoices: detailedInfo.recentInvoices)
                         }
                     }
+                    .padding()
                 }
-                .padding()
             }
             .navigationTitle("Employer Details")
             .navigationBarTitleDisplayMode(.inline)
@@ -726,6 +766,454 @@ struct EmployerDetailView: View {
                 }
             }
         }
+        .onAppear {
+            Task { await loadEmployerDetails() }
+        }
+    }
+    
+    private func loadEmployerDetails() async {
+        guard let employerId = employer.id else { return }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            let details = try await apiService.getDetailedEmployer(id: employerId)
+            await MainActor.run {
+                detailedEmployerInfo = details
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                isLoading = false
+            }
+        }
+    }
+}
+
+// MARK: - Employer Detail Cards
+
+struct EmployerHeaderCard: View {
+    let employer: Employer
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(employer.name ?? "Unnamed Employer")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    
+                    if let legalName = employer.legalName, legalName != employer.name {
+                        Text("Legal: \(legalName)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                Image(systemName: "building.2")
+                    .font(.system(size: 32))
+                    .foregroundColor(.merotBlue)
+            }
+            
+            if let createdAt = employer.createdAt {
+                Text("Client since \(createdAt.formatted(date: .abbreviated, time: .omitted))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
+}
+
+struct EmployerStatisticsCard: View {
+    let statistics: EmployerStatistics
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Statistics")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 16) {
+                StatisticTile(
+                    title: "Total Employees",
+                    value: "\(statistics.totalEmployees)",
+                    subtitle: "\(statistics.activeEmployees) active",
+                    icon: "person.3",
+                    color: .blue
+                )
+                
+                StatisticTile(
+                    title: "Unpaid Invoices",
+                    value: "\(statistics.unpaidInvoicesCount)",
+                    subtitle: String(format: "$%.0f", statistics.unpaidInvoicesTotal),
+                    icon: "doc.text.fill",
+                    color: statistics.unpaidInvoicesCount > 0 ? .orange : .green
+                )
+                
+                if statistics.overdueInvoicesCount > 0 {
+                    StatisticTile(
+                        title: "Overdue Invoices",
+                        value: "\(statistics.overdueInvoicesCount)",
+                        subtitle: String(format: "$%.0f", statistics.overdueInvoicesTotal),
+                        icon: "exclamationmark.triangle.fill",
+                        color: .red
+                    )
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
+}
+
+struct StatisticTile: View {
+    let title: String
+    let value: String
+    let subtitle: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                Spacer()
+            }
+            
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+            
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .background(color.opacity(0.1))
+        .cornerRadius(8)
+    }
+}
+
+struct EmployerContactCard: View {
+    let employer: Employer
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Contact Information")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                if let primaryEmail = employer.primaryEmail {
+                    ContactRow(label: "Primary Email", value: primaryEmail, icon: "envelope.fill")
+                }
+                
+                if let billingEmail = employer.billingEmail, billingEmail != employer.primaryEmail {
+                    ContactRow(label: "Billing Email", value: billingEmail, icon: "envelope.badge.fill")
+                }
+                
+                if let contactEmail = employer.contactEmail, contactEmail != employer.primaryEmail {
+                    ContactRow(label: "Contact Email", value: contactEmail, icon: "envelope")
+                }
+            }
+            
+            // Address Section
+            if hasAddress {
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "location.fill")
+                            .foregroundColor(.merotBlue)
+                        Text("Address")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let line1 = employer.addressLine1 {
+                            Text(line1)
+                        }
+                        if let line2 = employer.addressLine2 {
+                            Text(line2)
+                        }
+                        
+                        HStack {
+                            if let city = employer.addressCity {
+                                Text(city)
+                            }
+                            if let state = employer.addressState {
+                                Text(state)
+                            }
+                            if let zip = employer.addressZip {
+                                Text(zip)
+                            }
+                        }
+                        
+                        if let country = employer.addressCountry {
+                            Text(country)
+                                .fontWeight(.medium)
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 24)
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
+    
+    private var hasAddress: Bool {
+        employer.addressLine1 != nil || 
+        employer.addressCity != nil || 
+        employer.addressState != nil || 
+        employer.addressCountry != nil
+    }
+}
+
+struct ContactRow: View {
+    let label: String
+    let value: String
+    let icon: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(.merotBlue)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(value)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+            
+            Spacer()
+        }
+    }
+}
+
+struct EmployerRepresentativesCard: View {
+    let representatives: [EmployerRepresentative]
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Representatives (\(representatives.count))")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            VStack(spacing: 12) {
+                ForEach(representatives) { rep in
+                    HStack {
+                        Image(systemName: "person.circle.fill")
+                            .foregroundColor(.merotBlue)
+                            .font(.system(size: 20))
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(rep.name.isEmpty ? "No Name" : rep.name)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text(rep.email)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("Member since \(formatDate(rep.createdAt))")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    if rep.id != representatives.last?.id {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
+    
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: dateString) {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+        return dateString
+    }
+}
+
+struct RecentEmployeesCard: View {
+    let employees: [EmployerRecentEmployee]
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Recent Employees (\(employees.count))")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            VStack(spacing: 12) {
+                ForEach(employees) { employee in
+                    HStack {
+                        Image(systemName: "person.fill")
+                            .foregroundColor(.blue)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(employee.name)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text(employee.email)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 2) {
+                            if let department = employee.department {
+                                Text(department)
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(4)
+                            }
+                            
+                            if let position = employee.position {
+                                Text(position)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    
+                    if employee.id != employees.last?.id {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
+}
+
+struct RecentInvoicesCard: View {
+    let invoices: [EmployerRecentInvoice]
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Recent Invoices (\(invoices.count))")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            VStack(spacing: 12) {
+                ForEach(invoices) { invoice in
+                    HStack {
+                        Image(systemName: "doc.text.fill")
+                            .foregroundColor(invoice.overdue ? .red : statusColor(invoice.status))
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(invoice.invoiceNumber)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue)
+                                
+                                if let dueDate = invoice.dueDate {
+                                    Text("Due: \(formatDate(dueDate))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Text(String(format: "$%.0f", invoice.totalAmount))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(invoice.overdue ? .red : .primary)
+                    }
+                    
+                    if invoice.id != invoices.last?.id {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
+    }
+    
+    private func statusColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "paid": return .green
+        case "sent", "processing": return .blue
+        case "draft": return .orange
+        default: return .gray
+        }
+    }
+    
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: dateString) {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+        return dateString
     }
 }
 

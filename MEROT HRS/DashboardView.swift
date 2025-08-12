@@ -22,7 +22,9 @@ struct DashboardView: View {
                     } else if let dashboardData = dashboardData {
                         DashboardStatsView(stats: dashboardData.stats, selectedTab: $selectedTab, employeeFilter: $employeeFilter)
                         
-                        RecentActivitiesView(activities: dashboardData.recentActivities)
+                        if let recentActivities = dashboardData.stats.recentActivities {
+                            RecentActivitiesView(activities: recentActivities)
+                        }
                     } else if let errorMessage = errorMessage {
                         VStack {
                             Image(systemName: "exclamationmark.triangle")
@@ -294,7 +296,7 @@ struct ActivityRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(activity.employeeName)
+                Text(activity.employeeName ?? "Unknown Employee")
                     .font(.subheadline)
                     .fontWeight(.medium)
                 
@@ -303,7 +305,7 @@ struct ActivityRow: View {
                     .foregroundColor(.secondary)
                 
                 if let startDate = activity.startDate, let endDate = activity.endDate {
-                    Text("\(formatDate(startDate)) - \(formatDate(endDate))")
+                    Text("\(formatDateObject(startDate)) - \(formatDateObject(endDate))")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -312,7 +314,7 @@ struct ActivityRow: View {
             Spacer()
             
             VStack(alignment: .trailing) {
-                StatusBadge(status: activity.status)
+                StatusBadge(status: activity.status ?? "pending")
                 
                 if let days = activity.days {
                     Text("\(days) day\(days == 1 ? "" : "s")")
@@ -346,6 +348,12 @@ struct ActivityRow: View {
         }
         
         return dateString
+    }
+    
+    private func formatDateObject(_ date: Date) -> String {
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "MMM d, yyyy"
+        return displayFormatter.string(from: date)
     }
 }
 

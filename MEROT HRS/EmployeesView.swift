@@ -271,7 +271,7 @@ struct EmployeeRow: View {
                     HStack(spacing: 6) {
                         StatusBadge(status: employee.status)
                         
-                        if let onLeave = employee.onLeave, !onLeave.isEmpty {
+                        if let onLeave = employee.onLeave, onLeave {
                             OnLeaveBadge()
                         }
                     }
@@ -298,30 +298,6 @@ struct EmployeeRow: View {
     }
 }
 
-struct ErrorView: View {
-    let message: String
-    let retry: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundColor(.orange)
-            
-            Text("Error")
-                .font(.headline)
-            
-            Text(message)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            Button("Retry", action: retry)
-                .buttonStyle(MerotButtonStyle())
-        }
-        .padding()
-    }
-}
 
 struct OnLeaveBadge: View {
     var body: some View {

@@ -137,11 +137,11 @@ struct PendingRequestRow: View {
                 // Header row
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(request.employee.fullName)
+                        Text(request.employee?.fullName ?? request.employeeName ?? "Unknown Employee")
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        Text(request.employee.department)
+                        Text(request.employee?.department ?? "N/A")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -149,12 +149,12 @@ struct PendingRequestRow: View {
                     Spacer()
                     
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(request.days) day\(request.days == 1 ? "" : "s")")
+                        Text("\(request.days ?? 0) day\((request.days ?? 0) == 1 ? "" : "s")")
                             .font(.headline)
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
-                        StatusBadge(status: request.approvalStatus)
+                        StatusBadge(status: request.approvalStatus ?? request.status)
                     }
                 }
                 
@@ -247,6 +247,13 @@ struct PendingRequestRow: View {
         .listRowSeparator(.hidden)
     }
     
+    private func formattedDate(_ date: Date) -> String {
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateStyle = .long
+        displayFormatter.timeStyle = .none
+        return displayFormatter.string(from: date)
+    }
+    
     private func formattedDate(_ dateString: String) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
@@ -287,9 +294,9 @@ struct RequestDetailView: View {
                         Text("Employee Information")
                             .font(.headline)
                         
-                        RequestInfoRow(label: "Name", value: request.employee.fullName)
-                        RequestInfoRow(label: "Employee ID", value: request.employee.employeeId)
-                        RequestInfoRow(label: "Department", value: request.employee.department)
+                        RequestInfoRow(label: "Name", value: request.employee?.fullName ?? request.employeeName ?? "Unknown Employee")
+                        RequestInfoRow(label: "Employee ID", value: request.employee?.employeeId ?? "N/A")
+                        RequestInfoRow(label: "Department", value: request.employee?.department ?? "N/A")
                     }
                     .padding()
                     .background(Color(.systemGray6))
@@ -303,8 +310,8 @@ struct RequestDetailView: View {
                         RequestInfoRow(label: "Leave Type", value: request.timeOffRecord?.leaveType?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Unknown")
                         RequestInfoRow(label: "Start Date", value: formattedDate(request.startDate))
                         RequestInfoRow(label: "End Date", value: formattedDate(request.endDate))
-                        RequestInfoRow(label: "Duration", value: "\(request.days) day\(request.days == 1 ? "" : "s")")
-                        RequestInfoRow(label: "Status", value: request.approvalStatus.capitalized)
+                        RequestInfoRow(label: "Duration", value: "\(request.days ?? 0) day\((request.days ?? 0) == 1 ? "" : "s")")
+                        RequestInfoRow(label: "Status", value: (request.approvalStatus ?? request.status).capitalized)
                         RequestInfoRow(label: "Requested", value: formattedDate(request.createdAt))
                         
                         if let balance = request.timeOffRecord?.balance {
@@ -328,6 +335,13 @@ struct RequestDetailView: View {
                 }
             }
         }
+    }
+    
+    private func formattedDate(_ date: Date) -> String {
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateStyle = .long
+        displayFormatter.timeStyle = .none
+        return displayFormatter.string(from: date)
     }
     
     private func formattedDate(_ dateString: String) -> String {

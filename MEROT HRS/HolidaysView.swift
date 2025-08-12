@@ -50,9 +50,9 @@ struct HolidaysView: View {
                 } else if let holidaysData = holidaysData {
                     // Holiday List
                     List {
-                        let holidays = selectedCountry == "north_macedonia" ? 
-                                      holidaysData.holidays.northMacedonia : 
-                                      holidaysData.holidays.kosovo
+                        let holidays = holidaysData.holidays.filter { holiday in
+                            holiday.country.lowercased().replacingOccurrences(of: " ", with: "_") == selectedCountry
+                        }
                         
                         if holidays.isEmpty {
                             VStack(spacing: 16) {
@@ -115,6 +115,12 @@ struct HolidaysView: View {
             errorMessage = error.localizedDescription
         }
     }
+    
+    private func isWeekend(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: date)
+        return weekday == 1 || weekday == 7 // Sunday = 1, Saturday = 7
+    }
 }
 
 struct CountryFilterChip: View {
@@ -146,7 +152,7 @@ struct HolidayRow: View {
                 Text(dayNumber)
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(holiday.isWeekend ? .red : .primary)
+                    .foregroundColor((holiday.isWeekend ?? false) ? .red : .primary)
                 
                 Text(monthAbbreviation)
                     .font(.caption)
@@ -164,7 +170,7 @@ struct HolidayRow: View {
                         .fontWeight(.medium)
                         .foregroundColor(.primary)
                     
-                    if holiday.isWeekend {
+                    if holiday.isWeekend ?? false {
                         Image(systemName: "calendar.badge.exclamationmark")
                             .foregroundColor(.orange)
                             .font(.caption)
@@ -175,58 +181,58 @@ struct HolidayRow: View {
                 
                 // Day of week and Holiday Type Badge
                 HStack(spacing: 8) {
-                    Text(holiday.dayOfWeek)
+                    Text(holiday.dayOfWeek ?? dayOfWeek)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
                     Spacer()
                     
-                    HolidayTypeBadge(type: holiday.holidayType)
+                    HolidayTypeBadge(type: holiday.holidayType ?? "Public")
                 }
                 
                 // Applicable Group (always reserve space)
                 HStack {
-                    if holiday.applicableGroup != "all" {
-                        Text("Applicable to: \(holiday.applicableGroup.capitalized)")
+                    if let applicableGroup = holiday.applicableGroup, applicableGroup != "all" {
+                        Text("Applicable to: \(applicableGroup.capitalized)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     } else {
-                        Text(" ")
+                        Text("Country: \(holiday.country)")
                             .font(.caption)
-                            .foregroundColor(.clear)
+                            .foregroundColor(.secondary)
                     }
-                    
+                        
                     Spacer()
                 }
+                
+                Spacer()
             }
         }
         .padding(.vertical, 8)
     }
     
     private var dayNumber: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        
-        if let date = formatter.date(from: holiday.date) {
-            let dayFormatter = DateFormatter()
-            dayFormatter.dateFormat = "d"
-            return dayFormatter.string(from: date)
-        }
-        
-        return "?"
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "d"
+        return dayFormatter.string(from: holiday.date)
     }
     
     private var monthAbbreviation: String {
+        let monthFormatter = DateFormatter()
+        monthFormatter.dateFormat = "MMM"
+        return monthFormatter.string(from: holiday.date).uppercased()
+    }
+    
+    private var dayOfWeek: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        
-        if let date = formatter.date(from: holiday.date) {
-            let monthFormatter = DateFormatter()
-            monthFormatter.dateFormat = "MMM"
-            return monthFormatter.string(from: date).uppercased()
-        }
-        
-        return "?"
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: holiday.date)
+    }
+    
+    private func isWeekend(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: date)
+        return weekday == 1 || weekday == 7 // Sunday = 1, Saturday = 7
     }
 }
 

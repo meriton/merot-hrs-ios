@@ -14,7 +14,7 @@ struct HiringView: View {
         } else {
             return jobPostings.filter { jobPosting in
                 jobPosting.title.localizedCaseInsensitiveContains(searchText) ||
-                jobPosting.description.localizedCaseInsensitiveContains(searchText) ||
+                jobPosting.description?.localizedCaseInsensitiveContains(searchText) == true ||
                 jobPosting.department?.localizedCaseInsensitiveContains(searchText) ?? false ||
                 jobPosting.location?.localizedCaseInsensitiveContains(searchText) ?? false
             }
@@ -146,7 +146,7 @@ struct JobPostingRow: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
-                        Text(jobPosting.employer.name)
+                        Text(jobPosting.employer.name ?? "Unknown Company")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -190,7 +190,6 @@ struct JobPostingRow: View {
                 
                 if let salaryMin = jobPosting.salaryMin, let salaryMax = jobPosting.salaryMax {
                     HStack {
-                        let currency = jobPosting.salaryCurrency ?? "USD"
                         let period = jobPosting.salaryPeriod ?? "yearly"
                         Text("$\(Int(salaryMin))K - $\(Int(salaryMax/1000))K \(period)")
                             .font(.caption)

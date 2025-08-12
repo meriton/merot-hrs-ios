@@ -27,7 +27,10 @@ class APIService: ObservableObject {
             throw NetworkManager.NetworkError.serverError(response.message)
         }
         
-        return response.data.user.employer
+        guard let employer = response.data.user.employer else {
+            throw NetworkManager.NetworkError.serverError("No employer profile found for this user")
+        }
+        return employer
     }
     
     func updateEmployerProfile(_ employer: Employer) async throws -> Employer {
@@ -243,13 +246,29 @@ class APIService: ObservableObject {
         return response.data
     }
     
+    func getDetailedEmployer(id: Int) async throws -> DetailedEmployerResponse {
+        let response: APIResponse<DetailedEmployerResponse> = try await networkManager.get(
+            endpoint: "/admin/employers/\(id)",
+            responseType: APIResponse<DetailedEmployerResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message)
+        }
+        
+        return response.data
+    }
+    
     // MARK: - Invoice methods
     func getInvoices(
         page: Int = 1,
         perPage: Int = 20,
         status: String? = nil
     ) async throws -> [Invoice] {
-        var endpoint = "/invoices?page=\(page)&per_page=\(perPage)"
+        // Check if current user is an admin and use appropriate endpoint
+        let isAdmin = await isCurrentUserAdmin()
+        let baseEndpoint = isAdmin ? "/admin/invoices" : "/invoices"
+        var endpoint = "\(baseEndpoint)?page=\(page)&per_page=\(perPage)"
         
         if let status = status {
             endpoint += "&status=\(status)"
@@ -267,9 +286,41 @@ class APIService: ObservableObject {
         return response.data.invoices
     }
     
+    private func isCurrentUserAdmin() async -> Bool {
+        // Check if we have a cached user profile to determine admin status
+        if UserDefaults.standard.string(forKey: "jwt_token") != nil {
+            // Try to get current user profile to check admin status
+            do {
+                let response: APIResponse<UserProfileWrapperForAPI> = try await networkManager.get(
+                    endpoint: "/auth/profile",
+                    responseType: APIResponse<UserProfileWrapperForAPI>.self
+                )
+                
+                // Check if user type indicates admin or if they have super admin status
+                let userType = response.data.user.user_type.lowercased()
+                let isSuperAdmin = response.data.user.super_admin ?? false
+                let hasAdminRole = response.data.user.roles?.contains { $0.lowercased().contains("admin") } ?? false
+                
+                return userType == "admin" || 
+                       userType == "user" || 
+                       isSuperAdmin || 
+                       hasAdminRole
+            } catch {
+                // If we can't determine user type, default to non-admin endpoint
+                print("Failed to determine user admin status: \(error)")
+                return false
+            }
+        }
+        return false
+    }
+    
     func getInvoiceDetails(id: Int) async throws -> DetailedInvoice {
+        // Check if current user is an admin and use appropriate endpoint
+        let isAdmin = await isCurrentUserAdmin()
+        let endpoint = isAdmin ? "/admin/invoices/\(id)" : "/invoices/\(id)"
+        
         let response: APIResponse<InvoiceDetailResponse> = try await networkManager.get(
-            endpoint: "/invoices/\(id)",
+            endpoint: endpoint,
             responseType: APIResponse<InvoiceDetailResponse>.self
         )
         
@@ -281,7 +332,11 @@ class APIService: ObservableObject {
     }
     
     func downloadInvoicePDF(id: Int) async throws -> Data {
-        guard let url = URL(string: "\(NetworkManager.shared.baseURL)/invoices/\(id)/download_pdf") else {
+        // Check if current user is an admin and use appropriate endpoint
+        let isAdmin = await isCurrentUserAdmin()
+        let endpoint = isAdmin ? "/admin/invoices/\(id)/download_pdf" : "/invoices/\(id)/download_pdf"
+        
+        guard let url = URL(string: "\(NetworkManager.shared.baseURL)\(endpoint)") else {
             throw NetworkManager.NetworkError.invalidURL
         }
         

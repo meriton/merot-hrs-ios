@@ -227,56 +227,7 @@ struct ProfileInfoRow: View {
     }
 }
 
-// MARK: - Data Models
-struct EmployerProfileData: Decodable {
-    let employer: EmployerData
-    let employer_user: EmployerUserData
-    let profile_stats: ProfileStatsData
-}
-
-struct EmployerData: Decodable {
-    let id: Int
-    let name: String?
-    let legal_name: String?
-    let address_line1: String?
-    let address_city: String?
-    let address_state: String?
-    let address_zip: String?
-    let full_address: String?
-    let authorized_representative_name: String?
-    let authorized_officer_name: String?
-    let primary_email: String?
-    let billing_email: String?
-    let contact_email: String?
-    let email: String?
-    let stripe_customer_id: String?
-    let total_employees: Int?
-    let total_outstanding_amount: Double?
-    let total_paid_amount: Double?
-    let created_at: String
-    let updated_at: String
-}
-
-struct EmployerUserData: Decodable {
-    let id: Int
-    let email: String?
-    let first_name: String?
-    let last_name: String?
-    let full_name: String?
-    let employer_id: Int
-    let created_at: String
-    let updated_at: String
-}
-
-struct ProfileStatsData: Decodable {
-    let total_active_employees: Int
-    let total_inactive_employees: Int
-    let pending_time_off_requests: Int
-    let approved_time_off_requests_this_month: Int
-    let total_payroll_records: Int
-    let recent_invoices_count: Int
-    let outstanding_invoices_count: Int
-}
+// Models are now defined in Models.swift
 
 
 #Preview {

@@ -87,11 +87,11 @@ struct EmployeeDetailView: View {
                                     InfoRow(label: "Employment Status", value: status.capitalized)
                                 }
                                 
-                                if let grossSalary = employment.grossSalaryDouble {
+                                if let grossSalary = employment.grossSalary {
                                     InfoRow(label: "Gross Salary", value: "$\(Int(grossSalary))")
                                 }
                                 
-                                if let employmentFee = employment.employmentFeeDouble {
+                                if let employmentFee = employment.grossSalary {
                                     InfoRow(label: "Employment Fee", value: "$\(Int(employmentFee))")
                                 }
                             }
