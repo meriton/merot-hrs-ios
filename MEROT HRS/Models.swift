@@ -450,6 +450,12 @@ struct RecentEmployer: Codable, Identifiable {
 
 struct DashboardData: Codable {
     let stats: DashboardStats
+    let recentActivities: [DashboardActivity]?
+    
+    enum CodingKeys: String, CodingKey {
+        case stats
+        case recentActivities = "recent_activities"
+    }
 }
 
 struct DashboardStats: Codable {
@@ -457,33 +463,100 @@ struct DashboardStats: Codable {
     let activeEmployees: Int?
     let pendingTimeOffRequests: Int?
     let employeesOnLeaveToday: Int?
-    let recentActivities: [DashboardActivity]?
     
     enum CodingKeys: String, CodingKey {
         case totalEmployees = "total_employees"
         case activeEmployees = "active_employees"
         case pendingTimeOffRequests = "pending_time_off_requests"
         case employeesOnLeaveToday = "employees_on_leave_today"
-        case recentActivities = "recent_activities"
     }
 }
 
 struct DashboardActivity: Codable, Identifiable {
     let id: Int
     let type: String
-    let message: String
-    let timestamp: Date
     let employeeName: String?
     let startDate: Date?
     let endDate: Date?
     let status: String?
     let days: Int?
+    let createdAt: Date
     
     enum CodingKeys: String, CodingKey {
-        case id, type, message, timestamp, status, days
+        case id, type, status, days
         case employeeName = "employee_name"
         case startDate = "start_date"
         case endDate = "end_date"
+        case createdAt = "created_at"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        type = try container.decode(String.self, forKey: .type)
+        employeeName = try container.decodeIfPresent(String.self, forKey: .employeeName)
+        status = try container.decodeIfPresent(String.self, forKey: .status)
+        days = try container.decodeIfPresent(Int.self, forKey: .days)
+        
+        // Helper function to parse dates with multiple formatters
+        func parseDate(_ dateString: String) -> Date? {
+            // Try ISO8601DateFormatter first
+            let iso8601Formatter = ISO8601DateFormatter()
+            iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = iso8601Formatter.date(from: dateString) {
+                return date
+            }
+            
+            // Try without fractional seconds
+            iso8601Formatter.formatOptions = [.withInternetDateTime]
+            if let date = iso8601Formatter.date(from: dateString) {
+                return date
+            }
+            
+            // Try with regular DateFormatter as fallback
+            let dateFormatters = [
+                "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX",  // With fractional seconds and timezone
+                "yyyy-MM-dd'T'HH:mm:ssXXXXX",      // Without fractional seconds and timezone
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'+02:00'", // Specific timezone format
+                "yyyy-MM-dd'T'HH:mm:ss'+02:00'",     // Without fractional seconds, specific timezone
+                "yyyy-MM-dd'T'HH:mm:ssZ",          // UTC format
+                "yyyy-MM-dd'T'HH:mm:ss.SSSZ",      // UTC with fractional seconds
+                "yyyy-MM-dd'T'HH:mm:ss"            // Without timezone
+            ]
+            
+            for formatString in dateFormatters {
+                let formatter = DateFormatter()
+                formatter.dateFormat = formatString
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.timeZone = TimeZone.current
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+            }
+            
+            return nil
+        }
+        
+        // Parse optional start and end dates
+        if let startDateString = try container.decodeIfPresent(String.self, forKey: .startDate) {
+            startDate = parseDate(startDateString)
+        } else {
+            startDate = nil
+        }
+        
+        if let endDateString = try container.decodeIfPresent(String.self, forKey: .endDate) {
+            endDate = parseDate(endDateString)
+        } else {
+            endDate = nil
+        }
+        
+        // Parse required created_at date
+        let createdAtString = try container.decode(String.self, forKey: .createdAt)
+        guard let parsedCreatedAt = parseDate(createdAtString) else {
+            throw DecodingError.dataCorruptedError(forKey: .createdAt, in: container, debugDescription: "Date string '\(createdAtString)' could not be parsed with any supported format")
+        }
+        createdAt = parsedCreatedAt
     }
 }
 

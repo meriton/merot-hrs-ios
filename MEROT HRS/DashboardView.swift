@@ -22,7 +22,7 @@ struct DashboardView: View {
                     } else if let dashboardData = dashboardData {
                         DashboardStatsView(stats: dashboardData.stats, selectedTab: $selectedTab, employeeFilter: $employeeFilter)
                         
-                        if let recentActivities = dashboardData.stats.recentActivities {
+                        if let recentActivities = dashboardData.recentActivities {
                             RecentActivitiesView(activities: recentActivities)
                         }
                     } else if let errorMessage = errorMessage {
@@ -205,7 +205,7 @@ struct DashboardStatsView: View {
                 
                 StatCard(
                     title: "Active Employees",
-                    value: "\(stats.activeEmployees)",
+                    value: "\(stats.activeEmployees ?? 0)",
                     icon: "person.badge.plus",
                     color: .green
                 ) {
@@ -215,7 +215,7 @@ struct DashboardStatsView: View {
                 
                 StatCard(
                     title: "Pending Requests",
-                    value: "\(stats.pendingTimeOffRequests)",
+                    value: "\(stats.pendingTimeOffRequests ?? 0)",
                     icon: "clock.badge.exclamationmark",
                     color: .orange
                 ) {
@@ -224,7 +224,7 @@ struct DashboardStatsView: View {
                 
                 StatCard(
                     title: "On Leave Today",
-                    value: "\(stats.employeesOnLeaveToday)",
+                    value: "\(stats.employeesOnLeaveToday ?? 0)",
                     icon: "calendar.badge.minus",
                     color: .purple
                 ) {
