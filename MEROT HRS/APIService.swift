@@ -81,32 +81,32 @@ class APIService: ObservableObject {
     }
     
     func getEmployee(id: Int) async throws -> Employee {
-        let response: APIResponse<Employee> = try await networkManager.get(
+        let response: APIResponse<AdminEmployeeResponse> = try await networkManager.get(
             endpoint: "/employees/\(id)",
-            responseType: APIResponse<Employee>.self
+            responseType: APIResponse<AdminEmployeeResponse>.self
         )
         
         guard response.success else {
             throw NetworkManager.NetworkError.serverError(response.message)
         }
         
-        return response.data
+        return response.data.employee
     }
     
     func updateEmployee(id: Int, employee: Employee) async throws -> Employee {
         let updateRequest = ["employee": employee]
         
-        let response: APIResponse<Employee> = try await networkManager.put(
+        let response: APIResponse<AdminEmployeeResponse> = try await networkManager.put(
             endpoint: "/employees/\(id)",
             body: updateRequest,
-            responseType: APIResponse<Employee>.self
+            responseType: APIResponse<AdminEmployeeResponse>.self
         )
         
         guard response.success else {
             throw NetworkManager.NetworkError.serverError(response.message)
         }
         
-        return response.data
+        return response.data.employee
     }
     
     func getTimeOffRequests(
