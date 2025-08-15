@@ -2063,6 +2063,7 @@ struct AdminEmployeeEditView: View {
     @State private var bankName: String
     @State private var bankAccountNumber: String
     @State private var onMaternity: Bool
+    @State private var merotFee: String
     
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -2118,6 +2119,7 @@ struct AdminEmployeeEditView: View {
         _bankName = State(initialValue: employee.salaryDetail?.bankName ?? "")
         _bankAccountNumber = State(initialValue: employee.salaryDetail?.bankAccountNumber ?? "")
         _onMaternity = State(initialValue: employee.salaryDetail?.onMaternity ?? false)
+        _merotFee = State(initialValue: employee.salaryDetail?.merotFee.map { String($0) } ?? "")
     }
     
     var body: some View {
@@ -2332,6 +2334,14 @@ struct AdminEmployeeEditView: View {
                             .keyboardType(.decimalPad)
                     }
                     
+                    HStack {
+                        Text("Merot Fee")
+                            .frame(width: 120, alignment: .leading)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $merotFee)
+                            .keyboardType(.decimalPad)
+                    }
+                    
                     Toggle("On Maternity", isOn: $onMaternity)
                 }
                 
@@ -2464,7 +2474,7 @@ struct AdminEmployeeEditView: View {
         let hasAnyValue = !baseSalary.isEmpty || !hourlySalary.isEmpty || !variableSalary.isEmpty ||
                          !deductions.isEmpty || !netSalary.isEmpty || !grossSalary.isEmpty ||
                          !seniority.isEmpty || !bankName.isEmpty || !bankAccountNumber.isEmpty ||
-                         onMaternity
+                         onMaternity || !merotFee.isEmpty
         
         guard hasAnyValue else { return nil }
         
@@ -2478,7 +2488,8 @@ struct AdminEmployeeEditView: View {
             seniority: seniority.isEmpty ? nil : Double(seniority),
             bankName: bankName.isEmpty ? nil : bankName,
             bankAccountNumber: bankAccountNumber.isEmpty ? nil : bankAccountNumber,
-            onMaternity: onMaternity
+            onMaternity: onMaternity,
+            merotFee: merotFee.isEmpty ? nil : Double(merotFee)
         )
     }
     

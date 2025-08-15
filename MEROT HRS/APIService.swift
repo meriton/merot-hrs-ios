@@ -708,6 +708,7 @@ struct AdminSalaryDetailUpdateRequest: Codable {
     let bankName: String?
     let bankAccountNumber: String?
     let onMaternity: Bool?
+    let merotFee: Double?
     
     enum CodingKeys: String, CodingKey {
         case baseSalary = "base_salary"
@@ -720,6 +721,7 @@ struct AdminSalaryDetailUpdateRequest: Codable {
         case bankName = "bank_name"
         case bankAccountNumber = "bank_account_number"
         case onMaternity = "on_maternity"
+        case merotFee = "merot_fee"
     }
 }
 

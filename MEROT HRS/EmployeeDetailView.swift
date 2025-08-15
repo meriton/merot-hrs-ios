@@ -91,8 +91,10 @@ struct EmployeeDetailView: View {
                                     InfoRow(label: "Gross Salary", value: "$\(Int(grossSalary))")
                                 }
                                 
-                                if let employmentFee = employment.grossSalary {
-                                    InfoRow(label: "Employment Fee", value: "$\(Int(employmentFee))")
+                                // Employment Fee from salary detail merot_fee
+                                if let salaryDetail = displayEmployee.salaryDetail,
+                                   let merotFee = salaryDetail.merotFee {
+                                    InfoRow(label: "Employment Fee", value: "$\(Int(merotFee))")
                                 }
                             }
                         }
