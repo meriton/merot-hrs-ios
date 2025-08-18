@@ -9,48 +9,90 @@ import SwiftUI
 
 struct SplashScreenView: View {
     @State private var logoOpacity: Double = 0.0
+    @State private var logoScale: Double = 1.5
+    @State private var backgroundOpacity: Double = 1.0
     @State private var showMainContent = false
+    @State private var phraseOpacities: [Double] = [0.0, 0.0]
     @Environment(\.colorScheme) var colorScheme
     
+    private let taglinePhrases = ["Your Team,", "Beyond Borders."]
+    
     var body: some View {
-        if showMainContent {
+        ZStack {
+            // Main content (always present but initially invisible)
             MainContentView()
-        } else {
-            ZStack {
-                // Background - dark in dark mode, gradient in light mode
-                if colorScheme == .dark {
-                    Color.black
+                .opacity(showMainContent ? 1.0 : 0.0)
+            
+            // Splash overlay
+            if backgroundOpacity > 0 {
+                ZStack {
+                    // Background
+                    (colorScheme == .dark ? Color.black : Color.white)
                         .ignoresSafeArea()
-                } else {
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.blue.opacity(0.1), Color.white]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .ignoresSafeArea()
-                }
-                
-                // Logo - same as login screen but 35% smaller
-                Image("MerotLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 78) // 120 * 0.65 = 78
-                    .padding(10) // 16 * 0.65 ≈ 10
-                    .background(Color.white)
-                    .cornerRadius(13) // 20 * 0.65 = 13
-                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                    .opacity(logoOpacity)
-            }
-            .onAppear {
-                withAnimation(.easeOut(duration: 1.0)) {
-                    logoOpacity = 1.0
-                }
-                
-                // Automatically transition to main content after animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        showMainContent = true
+                        .opacity(backgroundOpacity)
+                    
+                    // Logo and tagline centered in screen
+                    VStack(spacing: 20) {
+                        Spacer()
+                        
+                        Image("MerotLogo")
+                            .renderingMode(colorScheme == .dark ? .template : .original)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 80)
+                            .foregroundColor(colorScheme == .dark ? .white : nil)
+                            .scaleEffect(logoScale)
+                            .opacity(logoOpacity)
+                        
+                        // Animated tagline
+                        HStack(spacing: 8) {
+                            ForEach(0..<taglinePhrases.count, id: \.self) { index in
+                                Text(taglinePhrases[index])
+                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                    .foregroundColor(colorScheme == .dark ? .white : .black)
+                                    .opacity(phraseOpacities[index])
+                            }
+                        }
+                        
+                        Spacer()
                     }
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .onAppear {
+            startAnimation()
+        }
+    }
+    
+    private func startAnimation() {
+        // Phase 1: Fade in logo (centered and scaled up)
+        withAnimation(.easeOut(duration: 0.5)) {
+            logoOpacity = 1.0
+        }
+        
+        // Phase 2: Animate tagline phrases one by one
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            for index in 0..<taglinePhrases.count {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.8) {
+                    withAnimation(.easeIn(duration: 1.0)) {
+                        phraseOpacities[index] = 1.0
+                    }
+                }
+            }
+        }
+        
+        // Phase 3: Hold for a moment after tagline completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+            // Phase 4: Fade in main content while keeping logo visible
+            withAnimation(.easeInOut(duration: 0.8)) {
+                showMainContent = true
+            }
+            
+            // Phase 5: Fade out splash overlay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    backgroundOpacity = 0.0
                 }
             }
         }

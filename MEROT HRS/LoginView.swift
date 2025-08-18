@@ -14,25 +14,12 @@ struct LoginView: View {
                 Spacer()
                 
                 Image("MerotLogo")
+                    .renderingMode(colorScheme == .dark ? .template : .original)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(height: 80)
+                    .foregroundColor(colorScheme == .dark ? .white : nil)
                     .padding(12)
-                    .background(
-                        colorScheme == .dark 
-                            ? Color(.systemGray2)
-                            : Color.clear
-                    )
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(
-                                colorScheme == .dark 
-                                    ? Color(.systemGray4) 
-                                    : Color.clear, 
-                                lineWidth: 1
-                            )
-                    )
                 
                 Text(userType == "admin" ? "Admin Dashboard" : "Employer Dashboard")
                     .font(.subheadline)
