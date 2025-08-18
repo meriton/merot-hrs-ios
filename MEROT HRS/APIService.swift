@@ -6,6 +6,11 @@ class APIService: ObservableObject {
     private var cachedIsAdmin: Bool?
     private var adminCheckTask: Task<Bool, Error>?
     
+    init() {
+        // Clear any potentially incorrect cached admin status
+        clearAdminCache()
+    }
+    
     func getDashboard() async throws -> DashboardData {
         let response: APIResponse<DashboardData> = try await networkManager.get(
             endpoint: "/employers/dashboard",
@@ -321,9 +326,10 @@ class APIService: ObservableObject {
                 let hasAdminRole = response.data.user.roles?.contains { $0.lowercased().contains("admin") } ?? false
                 
                 let isAdmin = userType == "admin" || 
-                             userType == "user" || 
                              isSuperAdmin || 
                              hasAdminRole
+                
+                print("Admin status check: userType=\(userType), isSuperAdmin=\(isSuperAdmin), hasAdminRole=\(hasAdminRole), isAdmin=\(isAdmin)")
                 
                 // Cache the result
                 self.cachedIsAdmin = isAdmin
