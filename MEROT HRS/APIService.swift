@@ -3,6 +3,8 @@ import Foundation
 class APIService: ObservableObject {
     static let shared = APIService()
     private let networkManager = NetworkManager.shared
+    private var cachedIsAdmin: Bool?
+    private var adminCheckTask: Task<Bool, Error>?
     
     func getDashboard() async throws -> DashboardData {
         let response: APIResponse<DashboardData> = try await networkManager.get(
@@ -287,9 +289,26 @@ class APIService: ObservableObject {
     }
     
     private func isCurrentUserAdmin() async -> Bool {
-        // Check if we have a cached user profile to determine admin status
-        if UserDefaults.standard.string(forKey: "jwt_token") != nil {
-            // Try to get current user profile to check admin status
+        // Return cached value if available
+        if let cached = cachedIsAdmin {
+            return cached
+        }
+        
+        // If there's already a request in progress, wait for it
+        if let existingTask = adminCheckTask {
+            do {
+                return try await existingTask.value
+            } catch {
+                // If the existing task failed, try again
+            }
+        }
+        
+        // Create new task to check admin status
+        let task = Task<Bool, Error> {
+            guard UserDefaults.standard.string(forKey: "jwt_token") != nil else {
+                return false
+            }
+            
             do {
                 let response: APIResponse<UserProfileWrapperForAPI> = try await networkManager.get(
                     endpoint: "/auth/profile",
@@ -301,17 +320,39 @@ class APIService: ObservableObject {
                 let isSuperAdmin = response.data.user.super_admin ?? false
                 let hasAdminRole = response.data.user.roles?.contains { $0.lowercased().contains("admin") } ?? false
                 
-                return userType == "admin" || 
-                       userType == "user" || 
-                       isSuperAdmin || 
-                       hasAdminRole
+                let isAdmin = userType == "admin" || 
+                             userType == "user" || 
+                             isSuperAdmin || 
+                             hasAdminRole
+                
+                // Cache the result
+                self.cachedIsAdmin = isAdmin
+                return isAdmin
             } catch {
                 // If we can't determine user type, default to non-admin endpoint
                 print("Failed to determine user admin status: \(error)")
+                self.cachedIsAdmin = false
                 return false
             }
         }
-        return false
+        
+        adminCheckTask = task
+        
+        do {
+            let result = try await task.value
+            adminCheckTask = nil
+            return result
+        } catch {
+            adminCheckTask = nil
+            return false
+        }
+    }
+    
+    // Add a method to clear the cache when needed (e.g., on logout)
+    func clearAdminCache() {
+        cachedIsAdmin = nil
+        adminCheckTask?.cancel()
+        adminCheckTask = nil
     }
     
     func getInvoiceDetails(id: Int) async throws -> DetailedInvoice {
@@ -363,6 +404,24 @@ class APIService: ObservableObject {
             throw NetworkManager.NetworkError.serverError("HTTP \(httpResponse.statusCode)")
         }
         
+        // Validate that we received PDF data
+        // PDF files start with "%PDF" magic bytes
+        if data.count < 5 {
+            print("ERROR: Received data is too small (\(data.count) bytes)")
+            throw NetworkManager.NetworkError.serverError("Invalid PDF data - too small")
+        }
+        
+        let pdfHeader = String(data: data.prefix(5), encoding: .ascii)
+        if pdfHeader != "%PDF-" {
+            print("ERROR: Data doesn't appear to be PDF. First bytes: \(data.prefix(100).map { String(format: "%02x", $0) }.joined())")
+            // Try to see if it's JSON error response
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("Received JSON instead of PDF: \(jsonString)")
+            }
+            throw NetworkManager.NetworkError.serverError("Invalid PDF data - not a PDF file")
+        }
+        
+        print("Successfully received PDF data: \(data.count) bytes")
         return data
     }
     

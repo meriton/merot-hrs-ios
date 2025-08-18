@@ -1,4 +1,5 @@
 import SwiftUI
+import QuickLook
 
 struct InvoiceDetailView: View {
     let invoice: Invoice
@@ -7,9 +8,7 @@ struct InvoiceDetailView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var isDownloading = false
-    @State private var pdfDataToShare: Data?
-    @State private var showingShareSheet = false
-    @State private var showingPDFViewer = false
+    @State private var pdfURL: URL?
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.colorScheme) var colorScheme
     
@@ -100,21 +99,7 @@ struct InvoiceDetailView: View {
                 await loadInvoiceDetails()
             }
         }
-        .sheet(isPresented: $showingPDFViewer) {
-            if let pdfData = pdfDataToShare {
-                PDFViewerSheet(
-                    pdfData: pdfData, 
-                    fileName: "invoice_\(invoice.invoiceNumber).pdf"
-                ) {
-                    showingShareSheet = true
-                }
-            }
-        }
-        .sheet(isPresented: $showingShareSheet) {
-            if let pdfData = pdfDataToShare {
-                ShareSheet(activityItems: [pdfData])
-            }
-        }
+        .quickLookPreview($pdfURL)
     }
     
     private func loadInvoiceDetails() async {
@@ -136,10 +121,21 @@ struct InvoiceDetailView: View {
         do {
             let pdfData = try await apiService.downloadInvoicePDF(id: invoice.id)
             
-            // Show PDF viewer and prepare for sharing
+            // Save PDF to temporary file for QuickLook
+            // Use same naming format as server: EmployerName_invoice_{invoice_number}.pdf
+            let employerName = detailedInvoice?.employer?.name ?? "Company"
+            let fileName = "\(employerName)_invoice_\(invoice.invoiceNumber).pdf"
+                .replacingOccurrences(of: " ", with: "_") // Replace spaces with underscores
+                .replacingOccurrences(of: "/", with: "-") // Replace slashes to avoid path issues
+            
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(fileName)
+            
+            try pdfData.write(to: tempURL)
+            
+            // Open with QuickLook
             DispatchQueue.main.async {
-                self.pdfDataToShare = pdfData
-                self.showingPDFViewer = true
+                self.pdfURL = tempURL
             }
         } catch {
             errorMessage = "Failed to download PDF: \(error.localizedDescription)"
@@ -150,77 +146,6 @@ struct InvoiceDetailView: View {
     
 }
 
-import PDFKit
-
-struct PDFViewerSheet: View {
-    let pdfData: Data
-    let fileName: String
-    let onShare: () -> Void
-    @Environment(\.presentationMode) var presentationMode
-    
-    var body: some View {
-        NavigationView {
-            PDFKitView(pdfData: pdfData)
-                .navigationTitle("Invoice PDF")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button("Close") {
-                            presentationMode.wrappedValue.dismiss()
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            presentationMode.wrappedValue.dismiss()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                onShare()
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.up")
-                                Text("Share")
-                            }
-                        }
-                    }
-                }
-        }
-    }
-}
-
-struct PDFKitView: UIViewRepresentable {
-    let pdfData: Data
-    
-    func makeUIView(context: Context) -> PDFView {
-        let pdfView = PDFView()
-        pdfView.autoScales = true
-        pdfView.displayMode = .singlePageContinuous
-        pdfView.displayDirection = .vertical
-        
-        if let pdfDocument = PDFDocument(data: pdfData) {
-            pdfView.document = pdfDocument
-        }
-        
-        return pdfView
-    }
-    
-    func updateUIView(_ uiView: PDFView, context: Context) {
-        // No updates needed
-    }
-}
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let activityVC = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-        return activityVC
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
-        // No updates needed
-    }
-}
 
 struct BasicInvoiceHeaderCard: View {
     let invoice: Invoice

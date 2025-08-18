@@ -632,11 +632,12 @@ struct DetailedInvoice: Codable, Identifiable {
     let overdue: Bool
     let daysOverdue: Int
     let lineItems: [InvoiceLineItem]
+    let employer: InvoiceEmployer?
     let createdAt: String
     let updatedAt: String
     
     enum CodingKeys: String, CodingKey {
-        case id, status, currency, overdue, subtotal
+        case id, status, currency, overdue, subtotal, employer
         case invoiceNumber = "invoice_number"
         case issueDate = "issue_date"
         case dueDate = "due_date"
@@ -655,6 +656,17 @@ struct DetailedInvoice: Codable, Identifiable {
         case lineItems = "line_items"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+}
+
+struct InvoiceEmployer: Codable {
+    let id: Int
+    let name: String
+    let legalName: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case legalName = "legal_name"
     }
 }
 

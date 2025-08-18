@@ -87,13 +87,13 @@ struct InvoicesView: View {
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     }
                     .listStyle(PlainListStyle())
+                    .refreshable {
+                        await loadInvoices(forceRefresh: true)
+                    }
                 }
             }
             .navigationTitle("Invoices")
             .navigationBarTitleDisplayMode(.large)
-            .refreshable {
-                await loadInvoices()
-            }
         }
         .onAppear {
             Task {
@@ -115,17 +115,24 @@ struct InvoicesView: View {
         }
     }
     
-    private func loadInvoices() async {
-        isLoading = true
+    private func loadInvoices(forceRefresh: Bool = false) async {
+        // Don't set isLoading if we're doing a pull-to-refresh
+        if !forceRefresh {
+            isLoading = true
+        }
         errorMessage = nil
         
         do {
-            invoices = try await apiService.getInvoices()
+            // Use CachedAPIService instead of APIService for better caching
+            let cachedService = CachedAPIService()
+            invoices = try await cachedService.getInvoices(forceRefresh: forceRefresh)
         } catch {
             errorMessage = error.localizedDescription
         }
         
-        isLoading = false
+        if !forceRefresh {
+            isLoading = false
+        }
     }
 }
 
