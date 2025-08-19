@@ -3,9 +3,127 @@ import SwiftUI
 struct AdminDashboardView: View {
     @EnvironmentObject var authService: AuthenticationService
     @State private var selectedTab = 0
+    @State private var selectedInvoice: Invoice? = nil
+    @State private var selectedEmployee: Employee? = nil
+    @State private var selectedEmployer: Employer? = nil
+    @State private var selectedJobPosting: JobPosting? = nil
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        if horizontalSizeClass == .regular {
+            // iPad layout - sidebar navigation
+            NavigationSplitView(columnVisibility: .constant(.all)) {
+                // Sidebar
+                List {
+                    Section("Overview") {
+                        Button(action: { selectedTab = 0 }) {
+                            Label("Dashboard", systemImage: "chart.bar")
+                                .foregroundColor(selectedTab == 0 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("Human Resources") {
+                        Button(action: { selectedTab = 1 }) {
+                            Label("Hiring", systemImage: "briefcase")
+                                .foregroundColor(selectedTab == 1 ? .accentColor : .primary)
+                        }
+                        Button(action: { selectedTab = 3 }) {
+                            Label("Employees", systemImage: "person.3")
+                                .foregroundColor(selectedTab == 3 ? .accentColor : .primary)
+                        }
+                        Button(action: { selectedTab = 4 }) {
+                            Label("Employers", systemImage: "building.2")
+                                .foregroundColor(selectedTab == 4 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("Finance") {
+                        Button(action: { selectedTab = 2 }) {
+                            Label("Invoices", systemImage: "doc.text")
+                                .foregroundColor(selectedTab == 2 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("System") {
+                        Button(action: { selectedTab = 5 }) {
+                            Label("Settings", systemImage: "gear")
+                                .foregroundColor(selectedTab == 5 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("Account") {
+                        Button(action: {
+                            Task {
+                                await authService.logout()
+                            }
+                        }) {
+                            Label("Sign Out", systemImage: "power")
+                                .foregroundColor(.red)
+                        }
+                    }
+                }
+                .navigationTitle("Admin Panel")
+                .navigationBarTitleDisplayMode(.large)
+                .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 350)
+            } content: {
+                // Content view (middle column - wider for lists)
+                Group {
+                    switch selectedTab {
+                    case 0:
+                        AdminHomeView()
+                            .environmentObject(authService)
+                    case 1:
+                        HiringView(selectedJobPosting: $selectedJobPosting, selectedInvoice: $selectedInvoice, selectedEmployee: $selectedEmployee, selectedEmployer: $selectedEmployer)
+                    case 2:
+                        InvoicesView(selectedInvoice: $selectedInvoice, selectedEmployee: $selectedEmployee, selectedJobPosting: $selectedJobPosting, selectedEmployer: $selectedEmployer)
+                    case 3:
+                        AdminEmployeesView(selectedEmployee: $selectedEmployee, selectedInvoice: $selectedInvoice, selectedJobPosting: $selectedJobPosting, selectedEmployer: $selectedEmployer)
+                    case 4:
+                        AdminEmployersView(selectedEmployer: $selectedEmployer, selectedInvoice: $selectedInvoice, selectedEmployee: $selectedEmployee, selectedJobPosting: $selectedJobPosting)
+                    case 5:
+                        AdminSettingsView()
+                    default:
+                        AdminHomeView()
+                            .environmentObject(authService)
+                    }
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationSplitViewColumnWidth(min: 320, ideal: 480, max: 640)
+            } detail: {
+                // Detail view (right panel for detailed information)
+                Group {
+                    if let invoice = selectedInvoice {
+                        InvoiceDetailView(invoice: invoice, showInDetailPane: true)
+                    } else if let employee = selectedEmployee {
+                        AdminEmployeeDetailView(employee: employee, showInDetailPane: true)
+                    } else if let employer = selectedEmployer {
+                        EmployerDetailView(employer: employer, showInDetailPane: true)
+                    } else if let jobPosting = selectedJobPosting {
+                        JobPostingDetailView(jobPosting: jobPosting, showInDetailPane: true)
+                    } else {
+                        VStack(spacing: 20) {
+                            Image(systemName: "sidebar.trailing")
+                                .font(.system(size: 48))
+                                .foregroundColor(.secondary)
+                            Text("Select an item to view details")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemGray6))
+                    }
+                }
+            }
+            .onChange(of: selectedTab) { _ in
+                // Clear detail selections when switching tabs
+                selectedInvoice = nil
+                selectedEmployee = nil
+                selectedEmployer = nil
+                selectedJobPosting = nil
+            }
+        } else {
+            // iPhone layout - tab view
+            TabView(selection: $selectedTab) {
             // Admin Dashboard Tab
             AdminHomeView()
                 .environmentObject(authService)
@@ -54,6 +172,7 @@ struct AdminDashboardView: View {
                     Text("Settings")
                 }
                 .tag(5)
+            }
         }
     }
 }
@@ -452,6 +571,32 @@ struct AdminEmployersView: View {
     @State private var currentPage = 1
     @State private var hasMorePages = true
     @State private var selectedEmployer: Employer?
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    
+    // Optional binding for iPad detail pane
+    @Binding var selectedEmployerForDetail: Employer?
+    @Binding var selectedInvoice: Invoice?
+    @Binding var selectedEmployee: Employee?
+    @Binding var selectedJobPosting: JobPosting?
+    private let isIPadMode: Bool
+    
+    // Default initializer for iPhone (no binding)
+    init() {
+        _selectedEmployerForDetail = .constant(nil)
+        _selectedInvoice = .constant(nil)
+        _selectedEmployee = .constant(nil)
+        _selectedJobPosting = .constant(nil)
+        isIPadMode = false
+    }
+    
+    // iPad initializer with binding
+    init(selectedEmployer: Binding<Employer?>, selectedInvoice: Binding<Invoice?> = .constant(nil), selectedEmployee: Binding<Employee?> = .constant(nil), selectedJobPosting: Binding<JobPosting?> = .constant(nil)) {
+        _selectedEmployerForDetail = selectedEmployer
+        _selectedInvoice = selectedInvoice
+        _selectedEmployee = selectedEmployee
+        _selectedJobPosting = selectedJobPosting
+        isIPadMode = true
+    }
     
     var filteredEmployers: [Employer] {
         if searchText.isEmpty {
@@ -540,7 +685,19 @@ struct AdminEmployersView: View {
                     List {
                         ForEach(filteredEmployers) { employer in
                             EmployerRow(employer: employer) {
-                                selectedEmployer = employer
+                                if isIPadMode {
+                                    // iPad: show in detail pane, clear other selections first, then set new selection
+                                    selectedInvoice = nil
+                                    selectedEmployee = nil
+                                    selectedJobPosting = nil
+                                    selectedEmployerForDetail = nil // Clear first to force update
+                                    DispatchQueue.main.async {
+                                        selectedEmployerForDetail = employer // Then set new selection
+                                    }
+                                } else {
+                                    // iPhone: show in sheet
+                                    selectedEmployer = employer
+                                }
                             }
                         }
                         
@@ -573,7 +730,7 @@ struct AdminEmployersView: View {
                 }
             }
         }
-        .sheet(item: $selectedEmployer) { employer in
+        .sheet(item: isIPadMode ? .constant(nil) : $selectedEmployer) { employer in
             EmployerDetailView(employer: employer)
         }
     }
@@ -688,16 +845,47 @@ struct EmployerRow: View {
 
 struct EmployerDetailView: View {
     let employer: Employer
+    let showInDetailPane: Bool
     @Environment(\.dismiss) private var dismiss
     @StateObject private var apiService = APIService()
     @State private var detailedEmployerInfo: DetailedEmployerResponse?
     @State private var isLoading = true
     @State private var errorMessage: String?
     
+    // Default initializer for sheet presentation
+    init(employer: Employer) {
+        self.employer = employer
+        self.showInDetailPane = false
+    }
+    
+    // Initializer for detail pane presentation
+    init(employer: Employer, showInDetailPane: Bool) {
+        self.employer = employer
+        self.showInDetailPane = showInDetailPane
+    }
+    
     var body: some View {
-        NavigationView {
-            ScrollView {
-                if let errorMessage = errorMessage {
+        Group {
+            if showInDetailPane {
+                // When shown in detail pane, don't wrap in NavigationView
+                contentView
+            } else {
+                // When shown as sheet, wrap in NavigationView
+                NavigationView {
+                    contentView
+                }
+            }
+        }
+        .onAppear {
+            Task {
+                await loadEmployerDetails()
+            }
+        }
+    }
+    
+    private var contentView: some View {
+        ScrollView {
+            if let errorMessage = errorMessage {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 48))
@@ -759,17 +947,15 @@ struct EmployerDetailView: View {
             .navigationTitle("Employer Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                if !showInDetailPane {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            dismiss()
+                        }
                     }
                 }
             }
         }
-        .onAppear {
-            Task { await loadEmployerDetails() }
-        }
-    }
     
     private func loadEmployerDetails() async {
         guard let employerId = employer.id else { return }
@@ -1227,6 +1413,32 @@ struct AdminEmployeesView: View {
     @State private var hasMorePages = true
     @State private var selectedEmployee: Employee?
     @State private var selectedStatus = "active" // Default to active
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    
+    // Optional bindings for iPad detail pane
+    @Binding var selectedEmployeeForDetail: Employee?
+    @Binding var selectedInvoice: Invoice?
+    @Binding var selectedJobPosting: JobPosting?
+    @Binding var selectedEmployer: Employer?
+    private let isIPadMode: Bool
+    
+    // Default initializer for iPhone (no detail pane bindings)
+    init() {
+        _selectedEmployeeForDetail = .constant(nil)
+        _selectedInvoice = .constant(nil)
+        _selectedJobPosting = .constant(nil)
+        _selectedEmployer = .constant(nil)
+        isIPadMode = false
+    }
+    
+    // iPad initializer with detail pane bindings
+    init(selectedEmployee: Binding<Employee?>, selectedInvoice: Binding<Invoice?> = .constant(nil), selectedJobPosting: Binding<JobPosting?> = .constant(nil), selectedEmployer: Binding<Employer?> = .constant(nil)) {
+        _selectedEmployeeForDetail = selectedEmployee
+        _selectedInvoice = selectedInvoice
+        _selectedJobPosting = selectedJobPosting
+        _selectedEmployer = selectedEmployer
+        isIPadMode = true
+    }
     
     let statusOptions = ["active", "pending", "terminated"]
     
@@ -1268,7 +1480,7 @@ struct AdminEmployeesView: View {
                 await loadEmployees(reset: true, forceRefresh: true)
             }
         }
-        .sheet(item: $selectedEmployee) { employee in
+        .sheet(item: isIPadMode ? .constant(nil) : $selectedEmployee) { employee in
             AdminEmployeeDetailView(employee: employee)
                 .onDisappear {
                     // Refresh the employee list when the detail view is dismissed
@@ -1411,7 +1623,19 @@ struct AdminEmployeesView: View {
                 List {
                     ForEach(filteredEmployees) { employee in
                         AdminEmployeeRow(employee: employee) {
-                            selectedEmployee = employee
+                            if isIPadMode {
+                                // iPad: show in detail pane, clear other selections first, then set new selection
+                                selectedInvoice = nil
+                                selectedJobPosting = nil
+                                selectedEmployer = nil
+                                selectedEmployeeForDetail = nil // Clear first to force update
+                                DispatchQueue.main.async {
+                                    selectedEmployeeForDetail = employee // Then set new selection
+                                }
+                            } else {
+                                // iPhone: show in sheet
+                                selectedEmployee = employee
+                            }
                         }
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.visible)
@@ -1621,17 +1845,48 @@ struct AdminEmployeeRow: View {
 
 struct AdminEmployeeDetailView: View {
     let employee: Employee
+    let showInDetailPane: Bool
     @Environment(\.dismiss) private var dismiss
     @State private var detailedEmployee: Employee?
     @State private var isLoadingDetails = false
     @StateObject private var cachedAPIService = CachedAPIService()
     
+    // Default initializer for sheet presentation
+    init(employee: Employee) {
+        self.employee = employee
+        self.showInDetailPane = false
+    }
+    
+    // Initializer for detail pane presentation
+    init(employee: Employee, showInDetailPane: Bool) {
+        self.employee = employee
+        self.showInDetailPane = showInDetailPane
+    }
+    
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
+        Group {
+            if showInDetailPane {
+                // When shown in detail pane, don't wrap in NavigationView
+                contentView
+            } else {
+                // When shown as sheet, wrap in NavigationView
+                NavigationView {
+                    contentView
+                }
+            }
+        }
+        .onAppear {
+            Task {
+                await loadDetailedEmployeeData()
+            }
+        }
+    }
+    
+    private var contentView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Header
+                VStack(alignment: .leading, spacing: 8) {
                         Text(employee.fullName)
                             .font(.largeTitle)
                             .fontWeight(.bold)
@@ -1750,21 +2005,15 @@ struct AdminEmployeeDetailView: View {
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                if !showInDetailPane {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            dismiss()
+                        }
                     }
                 }
             }
         }
-        .sheet(item: $detailedEmployee) { detailedEmp in
-            AdminEmployeeEditView(employee: detailedEmp) { updatedEmployee in
-                // Handle successful update - the parent view will refresh
-                detailedEmployee = nil  // This will dismiss the sheet
-                dismiss()
-            }
-        }
-    }
     
     private func loadDetailedEmployeeData() async {
         await MainActor.run {

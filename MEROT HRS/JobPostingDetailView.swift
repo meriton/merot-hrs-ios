@@ -2,15 +2,46 @@ import SwiftUI
 
 struct JobPostingDetailView: View {
     let jobPosting: JobPosting
+    let showInDetailPane: Bool
     @StateObject private var apiService = APIService()
     @State private var detailedJobPosting: JobPosting?
     @State private var isLoading = false
     @State private var errorMessage: String?
     @Environment(\.presentationMode) var presentationMode
     
+    // Default initializer for sheet presentation
+    init(jobPosting: JobPosting) {
+        self.jobPosting = jobPosting
+        self.showInDetailPane = false
+    }
+    
+    // Initializer for detail pane presentation
+    init(jobPosting: JobPosting, showInDetailPane: Bool) {
+        self.jobPosting = jobPosting
+        self.showInDetailPane = showInDetailPane
+    }
+    
     var body: some View {
-        NavigationView {
-            ScrollView {
+        Group {
+            if showInDetailPane {
+                // When shown in detail pane, don't wrap in NavigationView
+                contentView
+            } else {
+                // When shown as sheet, wrap in NavigationView
+                NavigationView {
+                    contentView
+                }
+            }
+        }
+        .onAppear {
+            Task {
+                await loadDetailedJobPosting()
+            }
+        }
+    }
+    
+    private var contentView: some View {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     let displayJobPosting = detailedJobPosting ?? jobPosting
                     
@@ -220,19 +251,15 @@ struct JobPostingDetailView: View {
             .navigationTitle("Job Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        presentationMode.wrappedValue.dismiss()
+                if !showInDetailPane {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            presentationMode.wrappedValue.dismiss()
+                        }
                     }
                 }
             }
         }
-        .onAppear {
-            Task {
-                await loadDetailedJobPosting()
-            }
-        }
-    }
     
     private func loadDetailedJobPosting() async {
         isLoading = true
@@ -260,7 +287,6 @@ struct JobPostingDetailView: View {
         return dateString
     }
 }
-
 #Preview {
     JobPostingDetailView(jobPosting: JobPosting(
         id: 1,

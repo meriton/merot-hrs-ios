@@ -7,6 +7,8 @@ class AuthenticationService: ObservableObject {
     @Published var errorMessage: String?
     
     private let networkManager = NetworkManager.shared
+    private let cacheManager = CacheManager.shared
+    private let apiService = APIService()
     
     init() {
         checkAuthenticationStatus()
@@ -70,6 +72,8 @@ class AuthenticationService: ObservableObject {
         }
         
         networkManager.clearAuthTokens()
+        cacheManager.clearAllCache()
+        apiService.clearAdminCache()
         currentUser = nil
         isAuthenticated = false
         isLoading = false

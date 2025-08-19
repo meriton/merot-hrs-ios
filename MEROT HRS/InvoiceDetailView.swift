@@ -3,6 +3,7 @@ import QuickLook
 
 struct InvoiceDetailView: View {
     let invoice: Invoice
+    let showInDetailPane: Bool
     @StateObject private var apiService = APIService()
     @State private var detailedInvoice: DetailedInvoice?
     @State private var isLoading = false
@@ -12,9 +13,40 @@ struct InvoiceDetailView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.colorScheme) var colorScheme
     
+    // Default initializer for sheet presentation
+    init(invoice: Invoice) {
+        self.invoice = invoice
+        self.showInDetailPane = false
+    }
+    
+    // Initializer for detail pane presentation
+    init(invoice: Invoice, showInDetailPane: Bool) {
+        self.invoice = invoice
+        self.showInDetailPane = showInDetailPane
+    }
+    
     var body: some View {
-        NavigationView {
-            ScrollView {
+        Group {
+            if showInDetailPane {
+                // When shown in detail pane, don't wrap in NavigationView
+                contentView
+            } else {
+                // When shown as sheet, wrap in NavigationView
+                NavigationView {
+                    contentView
+                }
+            }
+        }
+        .onAppear {
+            Task {
+                await loadInvoiceDetails()
+            }
+        }
+        .quickLookPreview($pdfURL)
+    }
+    
+    private var contentView: some View {
+        ScrollView {
                 VStack(spacing: 20) {
                     if let errorMessage = errorMessage {
                         ErrorView(message: errorMessage) {
@@ -68,9 +100,11 @@ struct InvoiceDetailView: View {
             .navigationTitle("Invoice Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
-                        presentationMode.wrappedValue.dismiss()
+                if !showInDetailPane {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Close") {
+                            presentationMode.wrappedValue.dismiss()
+                        }
                     }
                 }
                 
@@ -94,13 +128,6 @@ struct InvoiceDetailView: View {
                 }
             }
         }
-        .onAppear {
-            Task {
-                await loadInvoiceDetails()
-            }
-        }
-        .quickLookPreview($pdfURL)
-    }
     
     private func loadInvoiceDetails() async {
         isLoading = true
@@ -143,9 +170,7 @@ struct InvoiceDetailView: View {
         
         isDownloading = false
     }
-    
 }
-
 
 struct BasicInvoiceHeaderCard: View {
     let invoice: Invoice

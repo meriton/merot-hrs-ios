@@ -14,6 +14,7 @@ struct SplashScreenView: View {
     @State private var showMainContent = false
     @State private var phraseOpacities: [Double] = [0.0, 0.0]
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
     private let taglinePhrases = ["Your Team,", "Beyond Borders."]
     
@@ -39,7 +40,7 @@ struct SplashScreenView: View {
                             .renderingMode(colorScheme == .dark ? .template : .original)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(height: 80)
+                            .frame(height: horizontalSizeClass == .regular ? 120 : 80)
                             .foregroundColor(colorScheme == .dark ? .white : nil)
                             .scaleEffect(logoScale)
                             .opacity(logoOpacity)
@@ -48,7 +49,7 @@ struct SplashScreenView: View {
                         HStack(spacing: 8) {
                             ForEach(0..<taglinePhrases.count, id: \.self) { index in
                                 Text(taglinePhrases[index])
-                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                    .font(.system(size: horizontalSizeClass == .regular ? 24 : 18, weight: .semibold, design: .rounded))
                                     .foregroundColor(colorScheme == .dark ? .white : .black)
                                     .opacity(phraseOpacities[index])
                             }

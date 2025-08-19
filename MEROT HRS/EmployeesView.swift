@@ -10,11 +10,35 @@ struct EmployeesView: View {
     @State private var currentPage = 1
     @State private var totalPages = 1
     @State private var selectedEmployee: Employee?
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
     @Binding var filterFromDashboard: String?
     
+    // Optional bindings for iPad detail pane
+    @Binding var selectedEmployeeForDetail: Employee?
+    @Binding var selectedInvoice: Invoice?
+    @Binding var selectedJobPosting: JobPosting?
+    @Binding var selectedEmployer: Employer?
+    private let isIPadMode: Bool
+    
+    // Default initializer for iPhone (no detail pane bindings)
     init(filterFromDashboard: Binding<String?> = .constant(nil)) {
         self._filterFromDashboard = filterFromDashboard
+        self._selectedEmployeeForDetail = .constant(nil)
+        self._selectedInvoice = .constant(nil)
+        self._selectedJobPosting = .constant(nil)
+        self._selectedEmployer = .constant(nil)
+        self.isIPadMode = false
+    }
+    
+    // iPad initializer with detail pane bindings
+    init(filterFromDashboard: Binding<String?> = .constant(nil), selectedEmployee: Binding<Employee?>, selectedInvoice: Binding<Invoice?> = .constant(nil), selectedJobPosting: Binding<JobPosting?> = .constant(nil), selectedEmployer: Binding<Employer?> = .constant(nil)) {
+        self._filterFromDashboard = filterFromDashboard
+        self._selectedEmployeeForDetail = selectedEmployee
+        self._selectedInvoice = selectedInvoice
+        self._selectedJobPosting = selectedJobPosting
+        self._selectedEmployer = selectedEmployer
+        self.isIPadMode = true
     }
     
     private let statusOptions = ["all", "active", "terminated", "pending"]
@@ -79,7 +103,19 @@ struct EmployeesView: View {
                             EmployeeRow(employee: employee)
                                 .onTapGesture {
                                     if !isLoading {
-                                        selectedEmployee = employee
+                                        if isIPadMode {
+                                            // iPad: show in detail pane, clear other selections first, then set new selection
+                                            selectedInvoice = nil
+                                            selectedJobPosting = nil
+                                            selectedEmployer = nil
+                                            selectedEmployeeForDetail = nil // Clear first to force update
+                                            DispatchQueue.main.async {
+                                                selectedEmployeeForDetail = employee // Then set new selection
+                                            }
+                                        } else {
+                                            // iPhone: show in sheet
+                                            selectedEmployee = employee
+                                        }
                                     }
                                 }
                         }
@@ -108,7 +144,7 @@ struct EmployeesView: View {
             }
             .navigationTitle("Employees")
             .navigationBarTitleDisplayMode(.large)
-            .sheet(item: $selectedEmployee) { employee in
+            .sheet(item: isIPadMode ? .constant(nil) : $selectedEmployee) { employee in
                 EmployeeDetailView(employee: employee)
             }
         }

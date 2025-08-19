@@ -293,7 +293,7 @@ class APIService: ObservableObject {
         return response.data.invoices
     }
     
-    private func isCurrentUserAdmin() async -> Bool {
+    func isCurrentUserAdmin() async -> Bool {
         // Return cached value if available
         if let cached = cachedIsAdmin {
             return cached

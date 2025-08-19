@@ -235,7 +235,9 @@ class CachedAPIService: ObservableObject {
         status: String? = nil,
         forceRefresh: Bool = false
     ) async throws -> [Invoice] {
-        let cacheKey = CacheManager.CacheKeys.invoices(page: page, status: status)
+        // Check admin status for cache key differentiation
+        let isAdmin = await apiService.isCurrentUserAdmin()
+        let cacheKey = CacheManager.CacheKeys.invoices(page: page, status: status, isAdmin: isAdmin)
         
         if !forceRefresh, let cachedData = cacheManager.retrieve([Invoice].self, forKey: cacheKey) {
             return cachedData

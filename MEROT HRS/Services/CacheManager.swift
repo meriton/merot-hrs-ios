@@ -170,8 +170,9 @@ class CacheManager {
         static func dashboard() -> String { "dashboard" }
         static func timeOffRequests() -> String { "time_off_requests" }
         static func holidays() -> String { "holidays" }
-        static func invoices(page: Int, status: String?) -> String {
-            "invoices_page_\(page)_status_\(status ?? "all")"
+        static func invoices(page: Int, status: String?, isAdmin: Bool = false) -> String {
+            let userType = isAdmin ? "admin" : "employer"
+            return "\(userType)_invoices_page_\(page)_status_\(status ?? "all")"
         }
     }
     

@@ -2,15 +2,50 @@ import SwiftUI
 
 struct EmployeeDetailView: View {
     let employee: Employee
+    let showInDetailPane: Bool
     @StateObject private var apiService = APIService()
     @State private var detailedEmployee: Employee?
     @State private var isLoading = false
     @State private var errorMessage: String?
     @Environment(\.presentationMode) var presentationMode
     
+    // Default initializer for sheet presentation
+    init(employee: Employee) {
+        self.employee = employee
+        self.showInDetailPane = false
+    }
+    
+    // Initializer for detail pane presentation
+    init(employee: Employee, showInDetailPane: Bool) {
+        self.employee = employee
+        self.showInDetailPane = showInDetailPane
+    }
+    
     var body: some View {
-        NavigationView {
-            ScrollView {
+        Group {
+            if showInDetailPane {
+                // When shown in detail pane, don't wrap in NavigationView
+                contentView
+            } else {
+                // When shown as sheet, wrap in NavigationView
+                NavigationView {
+                    contentView
+                }
+            }
+        }
+        .onAppear {
+            // Always start with the basic employee data immediately
+            detailedEmployee = employee
+            
+            // Then load detailed data in the background
+            Task {
+                await loadEmployeeDetails()
+            }
+        }
+    }
+    
+    private var contentView: some View {
+        ScrollView {
                 VStack(spacing: 24) {
                     if let displayEmployee = detailedEmployee ?? Optional(employee) {
                         // Header Section
@@ -150,23 +185,15 @@ struct EmployeeDetailView: View {
             .navigationTitle("Employee Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        presentationMode.wrappedValue.dismiss()
+                if !showInDetailPane {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            presentationMode.wrappedValue.dismiss()
+                        }
                     }
                 }
             }
         }
-        .onAppear {
-            // Always start with the basic employee data immediately
-            detailedEmployee = employee
-            
-            // Then load detailed data in the background
-            Task {
-                await loadEmployeeDetails()
-            }
-        }
-    }
     
     private func loadEmployeeDetails() async {
         isLoading = true

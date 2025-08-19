@@ -7,6 +7,32 @@ struct HiringView: View {
     @State private var errorMessage: String?
     @State private var searchText = ""
     @State private var selectedJobPosting: JobPosting?
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    
+    // Optional binding for iPad detail pane
+    @Binding var selectedJobPostingForDetail: JobPosting?
+    @Binding var selectedInvoice: Invoice?
+    @Binding var selectedEmployee: Employee?
+    @Binding var selectedEmployer: Employer?
+    private let isIPadMode: Bool
+    
+    // Default initializer for iPhone (no binding)
+    init() {
+        _selectedJobPostingForDetail = .constant(nil)
+        _selectedInvoice = .constant(nil)
+        _selectedEmployee = .constant(nil)
+        _selectedEmployer = .constant(nil)
+        isIPadMode = false
+    }
+    
+    // iPad initializer with binding
+    init(selectedJobPosting: Binding<JobPosting?>, selectedInvoice: Binding<Invoice?> = .constant(nil), selectedEmployee: Binding<Employee?> = .constant(nil), selectedEmployer: Binding<Employer?> = .constant(nil)) {
+        _selectedJobPostingForDetail = selectedJobPosting
+        _selectedInvoice = selectedInvoice
+        _selectedEmployee = selectedEmployee
+        _selectedEmployer = selectedEmployer
+        isIPadMode = true
+    }
     
     var filteredJobPostings: [JobPosting] {
         if searchText.isEmpty {
@@ -95,7 +121,19 @@ struct HiringView: View {
                 } else {
                     List(filteredJobPostings) { jobPosting in
                         JobPostingRow(jobPosting: jobPosting) {
-                            selectedJobPosting = jobPosting
+                            if isIPadMode {
+                                // iPad: show in detail pane, clear other selections first, then set new selection
+                                selectedInvoice = nil
+                                selectedEmployee = nil
+                                selectedEmployer = nil
+                                selectedJobPostingForDetail = nil // Clear first to force update
+                                DispatchQueue.main.async {
+                                    selectedJobPostingForDetail = jobPosting // Then set new selection
+                                }
+                            } else {
+                                // iPhone: show in sheet
+                                selectedJobPosting = jobPosting
+                            }
                         }
                     }
                     .listStyle(PlainListStyle())
@@ -112,7 +150,7 @@ struct HiringView: View {
                 await loadJobPostings()
             }
         }
-        .sheet(item: $selectedJobPosting) { jobPosting in
+        .sheet(item: isIPadMode ? .constant(nil) : $selectedJobPosting) { jobPosting in
             JobPostingDetailView(jobPosting: jobPosting)
         }
     }

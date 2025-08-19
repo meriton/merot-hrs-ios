@@ -10,135 +10,227 @@ struct DashboardView: View {
     @State private var showingProfile = false
     @State private var selectedTab = 0
     @State private var employeeFilter: String? = nil
+    @State private var selectedInvoice: Invoice? = nil
+    @State private var selectedEmployee: Employee? = nil
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    if isLoading {
-                        ProgressView("Loading dashboard...")
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else if let dashboardData = dashboardData {
-                        DashboardStatsView(stats: dashboardData.stats, selectedTab: $selectedTab, employeeFilter: $employeeFilter)
+        if horizontalSizeClass == .regular {
+            // iPad layout - sidebar navigation
+            NavigationSplitView(columnVisibility: .constant(.all)) {
+                // Sidebar
+                List {
+                    Section("Overview") {
+                        Button(action: { 
+                            clearDetailSelections()
+                            selectedTab = 0 
+                        }) {
+                            Label("Dashboard", systemImage: "chart.bar")
+                                .foregroundColor(selectedTab == 0 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("Team") {
+                        Button(action: { 
+                            clearDetailSelections()
+                            selectedTab = 1 
+                        }) {
+                            Label("Employees", systemImage: "person.3")
+                                .foregroundColor(selectedTab == 1 ? .accentColor : .primary)
+                        }
+                        Button(action: { 
+                            clearDetailSelections()
+                            selectedTab = 2 
+                        }) {
+                            Label("Pending Requests", systemImage: "clock.badge.exclamationmark")
+                                .foregroundColor(selectedTab == 2 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("Finance") {
+                        Button(action: { 
+                            clearDetailSelections()
+                            selectedTab = 3 
+                        }) {
+                            Label("Invoices", systemImage: "doc.text")
+                                .foregroundColor(selectedTab == 3 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("Calendar") {
+                        Button(action: { 
+                            clearDetailSelections()
+                            selectedTab = 4 
+                        }) {
+                            Label("Holidays", systemImage: "calendar.badge.clock")
+                                .foregroundColor(selectedTab == 4 ? .accentColor : .primary)
+                        }
+                    }
+                    
+                    Section("Account") {
+                        Button(action: {
+                            showingProfile = true
+                        }) {
+                            Label("Profile", systemImage: "person.circle")
+                                .foregroundColor(.primary)
+                        }
                         
-                        if let recentActivities = dashboardData.recentActivities {
-                            RecentActivitiesView(activities: recentActivities)
-                        }
-                    } else if let errorMessage = errorMessage {
-                        VStack {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.largeTitle)
-                                .foregroundColor(.orange)
-                            Text("Error loading dashboard")
-                                .font(.headline)
-                            Text(errorMessage)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                            
-                            Button("Retry") {
-                                Task {
-                                    await loadDashboard()
-                                }
+                        Button(action: {
+                            Task {
+                                await authService.logout()
                             }
-                            .buttonStyle(.borderedProminent)
+                        }) {
+                            Label("Sign Out", systemImage: "power")
+                                .foregroundColor(.red)
                         }
-                        .padding()
                     }
                 }
-                .padding()
-            }
-            .navigationTitle(employerProfile?.employer.name ?? "Dashboard")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    if let employerName = employerProfile?.employer.name {
-                        VStack(spacing: 0) {
-                            Text(employerName)
+                .navigationTitle(employerProfile?.employer.name ?? "MEROT HRS")
+                .navigationBarTitleDisplayMode(.large)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 300)
+            } content: {
+                // Content view (middle column - wider for lists)
+                Group {
+                    switch selectedTab {
+                    case 0:
+                        DashboardContentView(
+                            dashboardData: dashboardData,
+                            isLoading: isLoading,
+                            errorMessage: errorMessage,
+                            selectedTab: $selectedTab,
+                            employeeFilter: $employeeFilter,
+                            loadDashboard: loadDashboard
+                        )
+                    case 1:
+                        EmployeesView(filterFromDashboard: $employeeFilter, selectedEmployee: $selectedEmployee)
+                    case 2:
+                        PendingRequestsView()
+                    case 3:
+                        InvoicesView(selectedInvoice: $selectedInvoice, selectedEmployee: $selectedEmployee)
+                    case 4:
+                        HolidaysView()
+                    default:
+                        DashboardContentView(
+                            dashboardData: dashboardData,
+                            isLoading: isLoading,
+                            errorMessage: errorMessage,
+                            selectedTab: $selectedTab,
+                            employeeFilter: $employeeFilter,
+                            loadDashboard: loadDashboard
+                        )
+                    }
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationSplitViewColumnWidth(min: 280, ideal: 380, max: 480)
+            } detail: {
+                // Detail view (right panel for invoice/employee details)
+                Group {
+                    if let invoice = selectedInvoice {
+                        InvoiceDetailView(invoice: invoice, showInDetailPane: true)
+                    } else if let employee = selectedEmployee {
+                        EmployeeDetailView(employee: employee, showInDetailPane: true)
+                    } else {
+                        VStack(spacing: 20) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.system(size: 48))
+                                .foregroundColor(.secondary)
+                            Text("Select an item to view details")
                                 .font(.headline)
-                                .fontWeight(.semibold)
-                            Text("Dashboard")
-                                .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemGray6))
                     }
                 }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        showingProfile = true
-                    }) {
-                        Image(systemName: "person.circle")
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        Task {
-                            await authService.logout()
-                        }
-                    }) {
-                        Image(systemName: "power")
-                    }
-                }
-            }
-            .refreshable {
-                await loadDashboard()
+                .navigationSplitViewColumnWidth(min: 350, ideal: 450, max: 600)
             }
             .sheet(isPresented: $showingProfile) {
                 EmployerProfileView()
                     .environmentObject(authService)
             }
-            }
-            .tabItem {
-                Image(systemName: "chart.bar")
-                Text("Dashboard")
-            }
-            .tag(0)
-            
-            EmployeesView(filterFromDashboard: $employeeFilter)
-                .tabItem {
-                    Image(systemName: "person.3")
-                    Text("Employees")
-                }
-                .tag(1)
-            
-            PendingRequestsView()
-                .tabItem {
-                    Image(systemName: "clock.badge.exclamationmark")
-                    Text("Pending")
-                }
-                .tag(2)
-            
-            InvoicesView()
-                .tabItem {
-                    Image(systemName: "doc.text")
-                    Text("Invoices")
-                }
-                .tag(3)
-            
-            HolidaysView()
-                .tabItem {
-                    Image(systemName: "calendar.badge.clock")
-                    Text("Holidays")
-                }
-                .tag(4)
-        }
-        .onAppear {
-            Task {
-                await loadDashboard()
-                loadEmployerProfile()
-            }
-        }
-        .onChange(of: selectedTab) { newTab in
-            // Refresh dashboard data when returning to dashboard tab
-            if newTab == 0 {
+            .onAppear {
                 Task {
                     await loadDashboard()
+                    loadEmployerProfile()
+                }
+            }
+        } else {
+            // iPhone layout - tab view
+            TabView(selection: $selectedTab) {
+                NavigationView {
+                    DashboardContentView(
+                        dashboardData: dashboardData,
+                        isLoading: isLoading,
+                        errorMessage: errorMessage,
+                        selectedTab: $selectedTab,
+                        employeeFilter: $employeeFilter,
+                        loadDashboard: loadDashboard
+                    )
+                    .navigationTitle(employerProfile?.employer.name ?? "Dashboard")
+                    .navigationBarTitleDisplayMode(.large)
+                }
+                .tabItem {
+                    Image(systemName: "chart.bar")
+                    Text("Dashboard")
+                }
+                .tag(0)
+                
+                EmployeesView(filterFromDashboard: $employeeFilter)
+                    .tabItem {
+                        Image(systemName: "person.3")
+                        Text("Employees")
+                    }
+                    .tag(1)
+                
+                PendingRequestsView()
+                    .tabItem {
+                        Image(systemName: "clock.badge.exclamationmark")
+                        Text("Pending")
+                    }
+                    .tag(2)
+                
+                InvoicesView()
+                    .tabItem {
+                        Image(systemName: "doc.text")
+                        Text("Invoices")
+                    }
+                    .tag(3)
+                
+                HolidaysView()
+                    .tabItem {
+                        Image(systemName: "calendar.badge.clock")
+                        Text("Holidays")
+                    }
+                    .tag(4)
+            }
+            .sheet(isPresented: $showingProfile) {
+                EmployerProfileView()
+                    .environmentObject(authService)
+            }
+            .onAppear {
+                Task {
+                    await loadDashboard()
+                    loadEmployerProfile()
+                }
+            }
+            .onChange(of: selectedTab) { newTab in
+                // Clear detail selections when switching tabs
+                selectedInvoice = nil
+                selectedEmployee = nil
+                
+                // Refresh dashboard data when returning to dashboard tab
+                if newTab == 0 {
+                    Task {
+                        await loadDashboard()
+                    }
                 }
             }
         }
+    }
+    
+    private func clearDetailSelections() {
+        selectedInvoice = nil
+        selectedEmployee = nil
     }
     
     private func loadDashboard() async {

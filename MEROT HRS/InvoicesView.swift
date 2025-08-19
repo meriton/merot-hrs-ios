@@ -8,6 +8,32 @@ struct InvoicesView: View {
     @State private var selectedInvoice: Invoice?
     @State private var selectedStatus: String = "all"
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    
+    // Optional binding for iPad detail pane
+    @Binding var selectedInvoiceForDetail: Invoice?
+    @Binding var selectedEmployee: Employee?
+    @Binding var selectedJobPosting: JobPosting?
+    @Binding var selectedEmployer: Employer?
+    private let isIPadMode: Bool
+    
+    // Default initializer for iPhone (no binding)
+    init() {
+        _selectedInvoiceForDetail = .constant(nil)
+        _selectedEmployee = .constant(nil)
+        _selectedJobPosting = .constant(nil)
+        _selectedEmployer = .constant(nil)
+        isIPadMode = false
+    }
+    
+    // iPad initializer with binding
+    init(selectedInvoice: Binding<Invoice?>, selectedEmployee: Binding<Employee?> = .constant(nil), selectedJobPosting: Binding<JobPosting?> = .constant(nil), selectedEmployer: Binding<Employer?> = .constant(nil)) {
+        _selectedInvoiceForDetail = selectedInvoice
+        _selectedEmployee = selectedEmployee
+        _selectedJobPosting = selectedJobPosting
+        _selectedEmployer = selectedEmployer
+        isIPadMode = true
+    }
     
     let statusOptions = [
         ("all", "All"),
@@ -82,7 +108,19 @@ struct InvoicesView: View {
                 } else {
                     List(filteredInvoices, id: \.id) { invoice in
                         InvoiceRow(invoice: invoice) {
-                            selectedInvoice = invoice
+                            if isIPadMode {
+                                // iPad: show in detail pane, clear other selections first, then set new selection
+                                selectedEmployee = nil
+                                selectedJobPosting = nil
+                                selectedEmployer = nil
+                                selectedInvoiceForDetail = nil // Clear first to force update
+                                DispatchQueue.main.async {
+                                    selectedInvoiceForDetail = invoice // Then set new selection
+                                }
+                            } else {
+                                // iPhone: show in sheet
+                                selectedInvoice = invoice
+                            }
                         }
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     }
@@ -100,7 +138,7 @@ struct InvoicesView: View {
                 await loadInvoices()
             }
         }
-        .sheet(item: $selectedInvoice) { invoice in
+        .sheet(item: isIPadMode ? .constant(nil) : $selectedInvoice) { invoice in
             InvoiceDetailView(invoice: invoice)
         }
     }
