@@ -673,6 +673,7 @@ class APIService: ObservableObject {
         
         return response.data
     }
+    
 }
 
 // MARK: - Response Types

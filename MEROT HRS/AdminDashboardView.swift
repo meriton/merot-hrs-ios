@@ -539,9 +539,9 @@ struct AdminEmployersView: View {
                 } else {
                     List {
                         ForEach(filteredEmployers) { employer in
-                            EmployerRow(employer: employer) {
+                            EmployerRow(employer: employer, onTap: {
                                 selectedEmployer = employer
-                            }
+                            })
                         }
                         
                         if hasMorePages && searchText.isEmpty {
@@ -626,6 +626,7 @@ struct AdminEmployersView: View {
         
         isLoading = false
     }
+    
 }
 
 struct EmployerRow: View {
