@@ -189,6 +189,35 @@ class NetworkManager: ObservableObject {
         return try await performRequest(request: request, responseType: responseType)
     }
     
+    func downloadData(endpoint: String) async throws -> Data {
+        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            throw NetworkError.invalidURL
+        }
+        
+        let request = createRequest(url: url, method: .GET)
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw NetworkError.networkError(URLError(.badServerResponse))
+            }
+            
+            guard 200...299 ~= httpResponse.statusCode else {
+                if httpResponse.statusCode == 401 {
+                    throw NetworkError.authenticationError
+                }
+                throw NetworkError.serverError("HTTP \(httpResponse.statusCode)")
+            }
+            
+            return data
+        } catch let error as NetworkError {
+            throw error
+        } catch {
+            throw NetworkError.networkError(error)
+        }
+    }
+    
     func setAuthTokens(token: String, refreshToken: String) {
         self.token = token
         self.refreshToken = refreshToken

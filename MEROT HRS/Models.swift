@@ -1087,16 +1087,190 @@ struct TimeOffRequestResponse: Codable {
     }
 }
 
-// MARK: - Employee Models (Basic for now)
+// MARK: - Employee Models
 
-struct EmployeeBasicInfo: Codable, Identifiable {
+struct EmployeeDashboardData: Codable {
+    let employee: EmployeeInfo
+    let employment: EmployeeEmployment?
+    let timeTracking: EmployeeTimeTracking
+    let timeOff: EmployeeTimeOffInfo
+    let recentTimeRecords: [EmployeeTimeRecord]
+    
+    enum CodingKeys: String, CodingKey {
+        case employee, employment
+        case timeTracking = "time_tracking"
+        case timeOff = "time_off"
+        case recentTimeRecords = "recent_time_records"
+    }
+}
+
+struct EmployeeInfo: Codable, Identifiable {
     let id: Int
     let fullName: String
     let employeeId: String?
+    let department: String?
     
     enum CodingKeys: String, CodingKey {
         case id
         case fullName = "full_name"
         case employeeId = "employee_id"
+        case department
+    }
+}
+
+struct EmployeeEmployment: Codable, Identifiable {
+    let id: Int
+    let position: String
+    let employer: EmployeeEmployer?
+}
+
+struct EmployeeEmployer: Codable, Identifiable {
+    let id: Int?
+    let name: String?
+}
+
+struct EmployeeTimeTracking: Codable {
+    let currentlyClockedIn: Bool
+    let totalHoursThisWeek: Double?
+    let totalHoursThisMonth: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case currentlyClockedIn = "currently_clocked_in"
+        case totalHoursThisWeek = "total_hours_this_week"
+        case totalHoursThisMonth = "total_hours_this_month"
+    }
+}
+
+struct EmployeeTimeOffInfo: Codable {
+    let availableDays: Int
+    let pendingRequestsCount: Int
+    let pendingRequests: [EmployeeTimeOffRequest]
+    
+    enum CodingKeys: String, CodingKey {
+        case availableDays = "available_days"
+        case pendingRequestsCount = "pending_requests_count"
+        case pendingRequests = "pending_requests"
+    }
+}
+
+struct EmployeeTimeOffRequest: Codable, Identifiable {
+    let id: Int
+    let startDate: String?
+    let endDate: String?
+    let days: Double?
+    let approvalStatus: String
+    let timeOffRecord: EmployeeTimeOffRecord?
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, days
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case approvalStatus = "approval_status"
+        case timeOffRecord = "time_off_record"
+        case createdAt = "created_at"
+    }
+}
+
+struct EmployeeTimeOffRecord: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let leaveType: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case leaveType = "leave_type"
+    }
+}
+
+struct EmployeeTimeRecord: Codable, Identifiable {
+    let id: Int
+    let clockInTime: String?
+    let clockOutTime: String?
+    let totalHours: Double?
+    let workDate: String?
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case clockInTime = "clock_in_time"
+        case clockOutTime = "clock_out_time"
+        case totalHours = "total_hours"
+        case workDate = "work_date"
+        case createdAt = "created_at"
+    }
+}
+
+struct EmployeeTimeOffRecordBalance: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let leaveType: String
+    let balance: Int
+    let totalDays: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, balance
+        case leaveType = "leave_type"
+        case totalDays = "total_days"
+    }
+}
+
+struct EmployeeTimeOffRequestList: Codable {
+    let timeOffRequests: [EmployeeTimeOffRequest]
+    let pagination: PaginationInfo
+    
+    enum CodingKeys: String, CodingKey {
+        case timeOffRequests = "time_off_requests"
+        case pagination
+    }
+}
+
+struct EmployeePayrollRecord: Codable, Identifiable {
+    let id: Int
+    let employeeId: String?
+    let grossPay: Double?
+    let netPay: Double?
+    let totalHours: Double?
+    let payrollBatch: EmployeePayrollBatch?
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, grossPay, netPay, totalHours, createdAt
+        case employeeId = "employee_id"
+        case payrollBatch = "payroll_batch"
+    }
+}
+
+struct EmployeePayrollBatch: Codable, Identifiable {
+    let id: Int
+    let month: Int
+    let year: Int
+    let payPeriodStart: String?
+    let payPeriodEnd: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, month, year
+        case payPeriodStart = "pay_period_start"
+        case payPeriodEnd = "pay_period_end"
+    }
+}
+
+struct EmployeeTimeOffRecordList: Codable {
+    let timeOffRecords: [EmployeeTimeOffRecordBalance]
+    let totalAvailableDays: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case timeOffRecords = "time_off_records"
+        case totalAvailableDays = "total_available_days"
+    }
+}
+
+struct EmployeePayrollRecordList: Codable {
+    let payrollRecords: [EmployeePayrollRecord]
+    let pagination: PaginationInfo
+    
+    enum CodingKeys: String, CodingKey {
+        case payrollRecords = "payroll_records"
+        case pagination
     }
 }
