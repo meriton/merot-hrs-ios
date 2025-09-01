@@ -210,25 +210,6 @@ struct InfoSection<Content: View>: View {
     }
 }
 
-struct InfoRow: View {
-    let label: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(label)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .frame(width: 120, alignment: .leading)
-            
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
-            
-            Spacer()
-        }
-    }
-}
 
 extension DateFormatter {
     static let displayDate: DateFormatter = {

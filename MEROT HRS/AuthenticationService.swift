@@ -42,7 +42,7 @@ class AuthenticationService: ObservableObject {
                 currentUser = response.data.user
                 isAuthenticated = true
             } else {
-                errorMessage = response.message
+                errorMessage = response.message ?? "Unknown error"
             }
         } catch {
             if let networkError = error as? NetworkManager.NetworkError {
@@ -122,7 +122,7 @@ class AuthenticationService: ObservableObject {
             if response.success {
                 currentUser = response.data.user
             } else {
-                errorMessage = response.message
+                errorMessage = response.message ?? "Unknown error"
             }
         } catch {
             if let networkError = error as? NetworkManager.NetworkError {

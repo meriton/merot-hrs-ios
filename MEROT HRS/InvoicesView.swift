@@ -22,7 +22,7 @@ struct InvoicesView: View {
         if selectedStatus == "all" {
             return invoices
         } else if selectedStatus == "overdue" {
-            return invoices.filter { $0.overdue }
+            return invoices.filter { $0.overdue == true }
         } else {
             return invoices.filter { $0.status == selectedStatus }
         }
@@ -109,7 +109,7 @@ struct InvoicesView: View {
         if status == "all" {
             return invoices.count
         } else if status == "overdue" {
-            return invoices.filter { $0.overdue }.count
+            return invoices.filter { $0.overdue == true }.count
         } else {
             return invoices.filter { $0.status == status }.count
         }
@@ -181,9 +181,15 @@ struct InvoiceRow: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                         
+                        if let employer = invoice.employer {
+                            Text(employer.name)
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                        }
+                        
                         if let billingPeriod = invoice.billingPeriodDisplay {
                             Text(billingPeriod)
-                                .font(.subheadline)
+                                .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -196,7 +202,7 @@ struct InvoiceRow: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
-                        InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue)
+                        InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue ?? false)
                     }
                 }
                 
@@ -213,9 +219,9 @@ struct InvoiceRow: View {
                     
                     Spacer()
                     
-                    if invoice.overdue {
+                    if invoice.overdue == true {
                         Label {
-                            Text("\(invoice.daysOverdue) days overdue")
+                            Text("\(invoice.daysOverdue ?? 0) days overdue")
                                 .font(.caption)
                                 .foregroundColor(.red)
                         } icon: {
