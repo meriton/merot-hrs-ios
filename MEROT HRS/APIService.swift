@@ -511,7 +511,7 @@ class APIService: ObservableObject {
     
     func getJobPosting(id: Int) async throws -> JobPosting {
         let response: APIResponse<JobPostingDetailResponse> = try await networkManager.get(
-            endpoint: "/admin/job_postings/\(id)\",
+            endpoint: "/admin/job_postings/\(id)",
             responseType: APIResponse<JobPostingDetailResponse>.self
         )
         
