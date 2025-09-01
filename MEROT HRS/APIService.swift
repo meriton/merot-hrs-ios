@@ -1153,5 +1153,4 @@ struct PasswordResetResponse: Codable {
     }
 }
 
-struct EmptyResponse: Codable {}
 

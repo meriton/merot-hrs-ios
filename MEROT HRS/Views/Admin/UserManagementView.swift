@@ -202,7 +202,7 @@ struct UserManagementView: View {
                     users.append(contentsOf: response.users)
                 }
                 
-                hasMoreUsers = response.pagination.page < response.pagination.totalPages
+                hasMoreUsers = response.pagination.currentPage < response.pagination.totalPages
                 isLoading = false
             }
         } catch {
@@ -229,9 +229,15 @@ struct InfoRow: View {
     var body: some View {
         HStack {
             Text(label)
-            Spacer()
-            Text(value)
+                .font(.subheadline)
                 .foregroundColor(.secondary)
+                .frame(width: 120, alignment: .leading)
+            
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.medium)
+            
+            Spacer()
         }
     }
 }
@@ -337,29 +343,34 @@ struct AddUserView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var email = ""
-    @State private var role: AdminUser.UserRole = .employee
+    @State private var userType = "admin"
     @State private var sendWelcomeEmail = true
+    
+    let userTypes = [
+        ("admin", "Admin"),
+        ("employer", "Employer")
+    ]
     
     var body: some View {
         NavigationView {
             Form {
-                Section("User Information") {
+                Section {
                     TextField("Full Name", text: $name)
                     TextField("Email Address", text: $email)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                 }
                 
-                Section("Permissions") {
-                    Picker("Role", selection: $role) {
-                        ForEach(AdminUser.UserRole.allCases, id: \.self) { role in
-                            Text(role.rawValue).tag(role)
+                Section {
+                    Picker("User Type", selection: $userType) {
+                        ForEach(userTypes, id: \.0) { type, title in
+                            Text(title).tag(type)
                         }
                     }
                     .pickerStyle(.segmented)
                 }
                 
-                Section("Notifications") {
+                Section {
                     Toggle("Send Welcome Email", isOn: $sendWelcomeEmail)
                 }
             }
@@ -412,7 +423,7 @@ struct UserDetailView: View {
     var body: some View {
         NavigationView {
             List {
-                Section("User Information") {
+                Section {
                     InfoRow(label: "Name", value: user.name)
                     InfoRow(label: "Email", value: user.email)
                     InfoRow(label: "User ID", value: "\(user.id)")
@@ -431,7 +442,7 @@ struct UserDetailView: View {
                     }
                 }
                 
-                Section("Access") {
+                Section {
                     HStack {
                         Text("Role")
                         Spacer()
@@ -464,7 +475,7 @@ struct UserDetailView: View {
                     }
                 }
                 
-                Section("Activity") {
+                Section {
                     if let lastLogin = user.lastLogin,
                        let loginDate = ISO8601DateFormatter().date(from: lastLogin) {
                         InfoRow(label: "Last Login", value: loginDate.formatted(date: .abbreviated, time: .shortened))
@@ -486,7 +497,7 @@ struct UserDetailView: View {
                     }
                 }
                 
-                Section("Actions") {
+                Section {
                     Button("Reset Password") {
                         // TODO: Implement password reset with API call
                     }
