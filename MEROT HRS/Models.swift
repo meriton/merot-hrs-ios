@@ -1087,124 +1087,16 @@ struct TimeOffRequestResponse: Codable {
     }
 }
 
-// MARK: - Employee Models
+// MARK: - Employee Models (Basic for now)
 
-struct EmployeeDashboardData: Codable {
-    let employee: EmployeeInfo
-    let employment: EmployeeEmployment?
-    let timeTracking: EmployeeTimeTracking
-    let timeOff: EmployeeTimeOffInfo
-    let recentTimeRecords: [EmployeeTimeRecord]
-    
-    enum CodingKeys: String, CodingKey {
-        case employee, employment
-        case timeTracking = "time_tracking"
-        case timeOff = "time_off"
-        case recentTimeRecords = "recent_time_records"
-    }
-}
-
-struct EmployeeInfo: Codable, Identifiable {
+struct EmployeeBasicInfo: Codable, Identifiable {
     let id: Int
     let fullName: String
     let employeeId: String?
-    let department: String?
     
     enum CodingKeys: String, CodingKey {
         case id
         case fullName = "full_name"
         case employeeId = "employee_id"
-        case department
-    }
-}
-
-struct EmployeeEmployment: Codable, Identifiable {
-    let id: Int
-    let position: String
-    let employer: EmployeeEmployer?
-    
-    enum CodingKeys: String, CodingKey {
-        case id, position, employer
-    }
-}
-
-struct EmployeeEmployer: Codable, Identifiable {
-    let id: Int?
-    let name: String?
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name
-    }
-}
-
-struct EmployeeTimeTracking: Codable {
-    let currentlyClockedIn: Bool
-    let totalHoursThisWeek: Double?
-    let totalHoursThisMonth: Double?
-    
-    enum CodingKeys: String, CodingKey {
-        case currentlyClockedIn = "currently_clocked_in"
-        case totalHoursThisWeek = "total_hours_this_week"
-        case totalHoursThisMonth = "total_hours_this_month"
-    }
-}
-
-struct EmployeeTimeOffInfo: Codable {
-    let availableDays: Int
-    let pendingRequestsCount: Int
-    let pendingRequests: [EmployeeTimeOffRequest]
-    
-    enum CodingKeys: String, CodingKey {
-        case availableDays = "available_days"
-        case pendingRequestsCount = "pending_requests_count"
-        case pendingRequests = "pending_requests"
-    }
-}
-
-struct EmployeeTimeOffRequest: Codable, Identifiable {
-    let id: Int
-    let startDate: String?
-    let endDate: String?
-    let days: Double?
-    let approvalStatus: String
-    let timeOffRecord: EmployeeTimeOffRecord?
-    let createdAt: String
-    
-    enum CodingKeys: String, CodingKey {
-        case id, days
-        case startDate = "start_date"
-        case endDate = "end_date"
-        case approvalStatus = "approval_status"
-        case timeOffRecord = "time_off_record"
-        case createdAt = "created_at"
-    }
-}
-
-struct EmployeeTimeOffRecord: Codable, Identifiable {
-    let id: Int
-    let name: String
-    let leaveType: String
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name
-        case leaveType = "leave_type"
-    }
-}
-
-struct EmployeeTimeRecord: Codable, Identifiable {
-    let id: Int
-    let clockInTime: String?
-    let clockOutTime: String?
-    let totalHours: Double?
-    let workDate: String?
-    let createdAt: String
-    
-    enum CodingKeys: String, CodingKey {
-        case id
-        case clockInTime = "clock_in_time"
-        case clockOutTime = "clock_out_time"
-        case totalHours = "total_hours"
-        case workDate = "work_date"
-        case createdAt = "created_at"
     }
 }

@@ -140,6 +140,98 @@ struct MainContentView: View {
     }
 }
 
+// MARK: - Employee Dashboard Views (Temporary - should be in separate file)
+
+struct EmployeeDashboardView: View {
+    @EnvironmentObject var authService: AuthenticationService
+    
+    var body: some View {
+        TabView {
+            EmployeeHomeView()
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("Home")
+                }
+            
+            Text("Time Off - Coming Soon")
+                .tabItem {
+                    Image(systemName: "calendar")
+                    Text("Time Off")
+                }
+            
+            Text("Paystubs - Coming Soon")
+                .tabItem {
+                    Image(systemName: "doc.text.fill")
+                    Text("Paystubs")
+                }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Sign Out") {
+                    Task {
+                        await authService.logout()
+                    }
+                }
+                .foregroundColor(.red)
+            }
+        }
+    }
+}
+
+struct EmployeeHomeView: View {
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 16) {
+                    Text("Employee Dashboard")
+                        .font(.title)
+                        .padding()
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Quick Stats")
+                            .font(.headline)
+                        
+                        HStack {
+                            StatCardView(title: "Time Off", value: "0", subtitle: "days available")
+                            StatCardView(title: "Requests", value: "0", subtitle: "pending")
+                        }
+                    }
+                    .padding()
+                    
+                    Text("Full employee functionality coming soon...")
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+            }
+            .navigationTitle("Home")
+        }
+    }
+}
+
+struct StatCardView: View {
+    let title: String
+    let value: String
+    let subtitle: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+    }
+}
+
 #Preview {
     SplashScreenView()
 }
