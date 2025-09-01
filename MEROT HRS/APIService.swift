@@ -18,7 +18,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -31,7 +31,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         guard let employer = response.data.user.employer else {
@@ -50,7 +50,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -78,7 +78,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return EmployeeListResponse(
@@ -94,7 +94,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.employee
@@ -110,7 +110,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.employee
@@ -148,7 +148,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.timeOffRequests
@@ -161,7 +161,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -176,7 +176,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.timeOffRequest
@@ -191,7 +191,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.timeOffRequest
@@ -204,7 +204,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -234,7 +234,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -247,7 +247,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -260,7 +260,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -287,7 +287,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.invoices
@@ -372,7 +372,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.invoice
@@ -441,7 +441,7 @@ class APIService: ObservableObject {
         if response.success {
             return response.data
         } else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
     }
     
@@ -457,7 +457,7 @@ class APIService: ObservableObject {
                 if response.success {
                     completion(.success(response.data))
                 } else {
-                    completion(.failure(NetworkManager.NetworkError.serverError(response.message)))
+                    completion(.failure(NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")))
                 }
             } catch {
                 completion(.failure(error))
@@ -503,7 +503,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -516,7 +516,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.jobPosting
@@ -531,7 +531,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return AdminDashboardData(
@@ -559,7 +559,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -602,7 +602,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.employee
@@ -616,7 +616,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.employee
@@ -632,7 +632,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
@@ -645,7 +645,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data.employee
@@ -668,7 +668,7 @@ class APIService: ObservableObject {
         )
         
         guard response.success else {
-            throw NetworkManager.NetworkError.serverError(response.message)
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
         }
         
         return response.data
