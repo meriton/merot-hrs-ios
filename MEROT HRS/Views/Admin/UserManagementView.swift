@@ -422,106 +422,174 @@ struct UserDetailView: View {
     
     var body: some View {
         NavigationView {
-            List {
-                Section {
-                    InfoRow(label: "Name", value: user.name)
-                    InfoRow(label: "Email", value: user.email)
-                    InfoRow(label: "User ID", value: "\(user.id)")
-                    InfoRow(label: "User Type", value: user.userType.capitalized)
-                    
-                    if let employer = user.employer {
-                        InfoRow(label: "Company", value: employer.name)
+            ScrollView {
+                LazyVStack(spacing: 20) {
+                    // User Information
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("User Information")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 8) {
+                            InfoRow(label: "Name", value: user.name)
+                            InfoRow(label: "Email", value: user.email)
+                            InfoRow(label: "User ID", value: "\(user.id)")
+                            InfoRow(label: "User Type", value: user.userType.capitalized)
+                            
+                            if let employer = user.employer {
+                                InfoRow(label: "Company", value: employer.name)
+                            }
+                            
+                            if let department = user.department {
+                                InfoRow(label: "Department", value: department)
+                            }
+                            
+                            if let employeeId = user.employeeId {
+                                InfoRow(label: "Employee ID", value: employeeId)
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
                     }
+                    .padding(.horizontal)
                     
-                    if let department = user.department {
-                        InfoRow(label: "Department", value: department)
+                    // Access Information
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Access")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Role")
+                                Spacer()
+                                Text(user.role?.capitalized ?? user.userType.capitalized)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(roleColor.opacity(0.2))
+                                    .foregroundColor(roleColor)
+                                    .cornerRadius(8)
+                            }
+                            
+                            HStack {
+                                Text("Status")
+                                Spacer()
+                                Text(user.status.capitalized)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(statusColor.opacity(0.2))
+                                    .foregroundColor(statusColor)
+                                    .cornerRadius(8)
+                            }
+                            
+                            if user.isSuperAdmin == true {
+                                HStack {
+                                    Text("Super Admin")
+                                    Spacer()
+                                    Image(systemName: "star.fill")
+                                        .foregroundColor(.yellow)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
                     }
+                    .padding(.horizontal)
                     
-                    if let employeeId = user.employeeId {
-                        InfoRow(label: "Employee ID", value: employeeId)
+                    // Activity Information
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Activity")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 8) {
+                            if let lastLogin = user.lastLogin,
+                               let loginDate = ISO8601DateFormatter().date(from: lastLogin) {
+                                InfoRow(label: "Last Login", value: loginDate.formatted(date: .abbreviated, time: .shortened))
+                            } else {
+                                InfoRow(label: "Last Login", value: "Never")
+                            }
+                            
+                            if let createdDate = ISO8601DateFormatter().date(from: user.createdAt) {
+                                InfoRow(label: "Account Created", value: createdDate.formatted(date: .abbreviated, time: .omitted))
+                            }
+                            
+                            if let signInCount = user.signInCount {
+                                InfoRow(label: "Sign In Count", value: "\(signInCount)")
+                            }
+                            
+                            if let suspendedAt = user.suspendedAt,
+                               let suspendedDate = ISO8601DateFormatter().date(from: suspendedAt) {
+                                InfoRow(label: "Suspended On", value: suspendedDate.formatted(date: .abbreviated, time: .shortened))
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
                     }
-                }
-                
-                Section {
-                    HStack {
-                        Text("Role")
-                        Spacer()
-                        Text(user.role?.capitalized ?? user.userType.capitalized)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(roleColor.opacity(0.2))
-                            .foregroundColor(roleColor)
+                    .padding(.horizontal)
+                    
+                    // Actions
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Actions")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 8) {
+                            Button("Reset Password") {
+                                // TODO: Implement password reset with API call
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
                             .cornerRadius(8)
-                    }
-                    
-                    HStack {
-                        Text("Status")
-                        Spacer()
-                        Text(user.status.capitalized)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(statusColor.opacity(0.2))
-                            .foregroundColor(statusColor)
+                            
+                            Button("Send Welcome Email") {
+                                // TODO: Implement welcome email
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.white)
                             .cornerRadius(8)
-                    }
-                    
-                    if user.isSuperAdmin == true {
-                        HStack {
-                            Text("Super Admin")
-                            Spacer()
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.gold)
+                            
+                            if user.status.lowercased() == "active" {
+                                Button("Suspend User") {
+                                    // TODO: Implement user suspension with API call
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.orange)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                            } else {
+                                Button("Activate User") {
+                                    // TODO: Implement user activation with API call
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                            }
+                            
+                            Button("Delete User") {
+                                showingDeleteConfirmation = true
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
                         }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
                     }
-                }
-                
-                Section {
-                    if let lastLogin = user.lastLogin,
-                       let loginDate = ISO8601DateFormatter().date(from: lastLogin) {
-                        InfoRow(label: "Last Login", value: loginDate.formatted(date: .abbreviated, time: .shortened))
-                    } else {
-                        InfoRow(label: "Last Login", value: "Never")
-                    }
-                    
-                    if let createdDate = ISO8601DateFormatter().date(from: user.createdAt) {
-                        InfoRow(label: "Account Created", value: createdDate.formatted(date: .abbreviated, time: .omitted))
-                    }
-                    
-                    if let signInCount = user.signInCount {
-                        InfoRow(label: "Sign In Count", value: "\(signInCount)")
-                    }
-                    
-                    if let suspendedAt = user.suspendedAt,
-                       let suspendedDate = ISO8601DateFormatter().date(from: suspendedAt) {
-                        InfoRow(label: "Suspended On", value: suspendedDate.formatted(date: .abbreviated, time: .shortened))
-                    }
-                }
-                
-                Section {
-                    Button("Reset Password") {
-                        // TODO: Implement password reset with API call
-                    }
-                    
-                    Button("Send Welcome Email") {
-                        // TODO: Implement welcome email
-                    }
-                    
-                    if user.status.lowercased() == "active" {
-                        Button("Suspend User") {
-                            // TODO: Implement user suspension with API call
-                        }
-                        .foregroundColor(.orange)
-                    } else {
-                        Button("Activate User") {
-                            // TODO: Implement user activation with API call
-                        }
-                        .foregroundColor(.green)
-                    }
-                    
-                    Button("Delete User") {
-                        showingDeleteConfirmation = true
-                    }
-                    .foregroundColor(.red)
+                    .padding(.horizontal)
                 }
             }
             .navigationTitle("User Details")
