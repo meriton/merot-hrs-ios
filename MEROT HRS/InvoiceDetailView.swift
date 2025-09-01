@@ -165,10 +165,13 @@ struct BasicInvoiceHeaderCard: View {
                 
                 Spacer()
                 
-                InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue)
+                InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue ?? false)
             }
             
             VStack(alignment: .leading, spacing: 8) {
+                if let employer = invoice.employer {
+                    DetailRow(label: "Company", value: employer.name)
+                }
                 DetailRow(label: "Issue Date", value: formatDate(invoice.issueDate))
                 DetailRow(label: "Due Date", value: formatDate(invoice.dueDate))
                 if let billingPeriod = invoice.billingPeriodDisplay {
@@ -176,11 +179,11 @@ struct BasicInvoiceHeaderCard: View {
                 }
             }
             
-            if invoice.overdue {
+            if invoice.overdue == true {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
-                    Text("This invoice is \(invoice.daysOverdue) days overdue")
+                    Text("This invoice is \(invoice.daysOverdue ?? 0) days overdue")
                         .font(.subheadline)
                         .foregroundColor(.red)
                         .fontWeight(.medium)
@@ -225,10 +228,13 @@ struct InvoiceHeaderCard: View {
                 
                 Spacer()
                 
-                InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue)
+                InvoiceStatusBadge(status: invoice.status, isOverdue: invoice.overdue ?? false)
             }
             
             VStack(alignment: .leading, spacing: 8) {
+                if let employer = invoice.employer {
+                    DetailRow(label: "Company", value: employer.name)
+                }
                 DetailRow(label: "Issue Date", value: formatDate(invoice.issueDate))
                 DetailRow(label: "Due Date", value: formatDate(invoice.dueDate))
                 if let billingPeriod = invoice.billingPeriodDisplay {
@@ -236,11 +242,11 @@ struct InvoiceHeaderCard: View {
                 }
             }
             
-            if invoice.overdue {
+            if invoice.overdue == true {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
-                    Text("This invoice is \(invoice.daysOverdue) days overdue")
+                    Text("This invoice is \(invoice.daysOverdue ?? 0) days overdue")
                         .font(.subheadline)
                         .foregroundColor(.red)
                         .fontWeight(.medium)
@@ -278,14 +284,14 @@ struct InvoiceSummaryCard: View {
                 .fontWeight(.semibold)
             
             VStack(spacing: 8) {
-                SummaryRow(label: "Subtotal", amount: invoice.subtotal)
+                SummaryRow(label: "Subtotal", amount: invoice.subtotal ?? 0.0)
                 
                 if let discountAmount = invoice.discountAmount, discountAmount > 0 {
                     SummaryRow(label: "Discount", amount: -discountAmount, isDiscount: true)
                 }
                 
-                if invoice.taxAmount > 0 {
-                    SummaryRow(label: "Tax", amount: invoice.taxAmount)
+                if (invoice.taxAmount ?? 0.0) > 0 {
+                    SummaryRow(label: "Tax", amount: invoice.taxAmount ?? 0.0)
                 }
                 
                 if let lateFee = invoice.lateFee, lateFee > 0 {
@@ -466,18 +472,18 @@ struct InvoiceTotalCard: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text(String(format: "$%.2f", invoice.subtotal))
+                    Text(String(format: "$%.2f", invoice.subtotal ?? 0.0))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
                 
-                if invoice.taxAmount > 0 {
+                if (invoice.taxAmount ?? 0.0) > 0 {
                     HStack {
                         Text("Tax")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "$%.2f", invoice.taxAmount))
+                        Text(String(format: "$%.2f", invoice.taxAmount ?? 0.0))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
@@ -549,18 +555,18 @@ struct BasicInvoiceTotalCard: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text(String(format: "$%.2f", invoice.subtotal))
+                    Text(String(format: "$%.2f", invoice.subtotal ?? 0.0))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
                 
-                if invoice.taxAmount > 0 {
+                if (invoice.taxAmount ?? 0.0) > 0 {
                     HStack {
                         Text("Tax")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "$%.2f", invoice.taxAmount))
+                        Text(String(format: "$%.2f", invoice.taxAmount ?? 0.0))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }

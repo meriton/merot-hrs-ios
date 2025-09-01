@@ -571,11 +571,11 @@ struct Invoice: Codable, Identifiable {
     let issueDate: String
     let dueDate: String
     let totalAmount: Double
-    let subtotal: Double
-    let taxAmount: Double
+    let subtotal: Double?
+    let taxAmount: Double?
     let discountAmount: Double?
     let lateFee: Double?
-    let currency: String
+    let currency: String?
     let billingPeriodStart: String?
     let billingPeriodEnd: String?
     let billingPeriodDisplay: String?
@@ -583,13 +583,14 @@ struct Invoice: Codable, Identifiable {
     let payrollProcessingFee: Double?
     let hrServicesFee: Double?
     let benefitsAdministrationFee: Double?
-    let overdue: Bool
-    let daysOverdue: Int
+    let overdue: Bool?
+    let daysOverdue: Int?
+    let employer: InvoiceEmployer?
     let createdAt: String
     let updatedAt: String
     
     enum CodingKeys: String, CodingKey {
-        case id, status, currency, overdue, subtotal
+        case id, status, currency, overdue, subtotal, employer
         case invoiceNumber = "invoice_number"
         case issueDate = "issue_date"
         case dueDate = "due_date"
@@ -607,6 +608,70 @@ struct Invoice: Codable, Identifiable {
         case daysOverdue = "days_overdue"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+    
+    // Standard initializer for creating instances programmatically
+    init(id: Int, invoiceNumber: String, status: String, issueDate: String, dueDate: String, totalAmount: Double, subtotal: Double? = nil, taxAmount: Double? = nil, discountAmount: Double? = nil, lateFee: Double? = nil, currency: String? = nil, billingPeriodStart: String? = nil, billingPeriodEnd: String? = nil, billingPeriodDisplay: String? = nil, totalEmployees: Int? = nil, payrollProcessingFee: Double? = nil, hrServicesFee: Double? = nil, benefitsAdministrationFee: Double? = nil, overdue: Bool? = nil, daysOverdue: Int? = nil, employer: InvoiceEmployer? = nil, createdAt: String, updatedAt: String) {
+        self.id = id
+        self.invoiceNumber = invoiceNumber
+        self.status = status
+        self.issueDate = issueDate
+        self.dueDate = dueDate
+        self.totalAmount = totalAmount
+        self.subtotal = subtotal
+        self.taxAmount = taxAmount
+        self.discountAmount = discountAmount
+        self.lateFee = lateFee
+        self.currency = currency
+        self.billingPeriodStart = billingPeriodStart
+        self.billingPeriodEnd = billingPeriodEnd
+        self.billingPeriodDisplay = billingPeriodDisplay
+        self.totalEmployees = totalEmployees
+        self.payrollProcessingFee = payrollProcessingFee
+        self.hrServicesFee = hrServicesFee
+        self.benefitsAdministrationFee = benefitsAdministrationFee
+        self.overdue = overdue
+        self.daysOverdue = daysOverdue
+        self.employer = employer
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+    
+    // Custom decoder to handle string total_amount from API
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        invoiceNumber = try container.decode(String.self, forKey: .invoiceNumber)
+        status = try container.decode(String.self, forKey: .status)
+        issueDate = try container.decode(String.self, forKey: .issueDate)
+        dueDate = try container.decode(String.self, forKey: .dueDate)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        
+        // Handle totalAmount as string or double
+        if let totalAmountString = try? container.decode(String.self, forKey: .totalAmount) {
+            totalAmount = Double(totalAmountString) ?? 0.0
+        } else {
+            totalAmount = try container.decode(Double.self, forKey: .totalAmount)
+        }
+        
+        // Handle optional fields
+        subtotal = try container.decodeIfPresent(Double.self, forKey: .subtotal)
+        taxAmount = try container.decodeIfPresent(Double.self, forKey: .taxAmount)
+        discountAmount = try container.decodeIfPresent(Double.self, forKey: .discountAmount)
+        lateFee = try container.decodeIfPresent(Double.self, forKey: .lateFee)
+        currency = try container.decodeIfPresent(String.self, forKey: .currency)
+        billingPeriodStart = try container.decodeIfPresent(String.self, forKey: .billingPeriodStart)
+        billingPeriodEnd = try container.decodeIfPresent(String.self, forKey: .billingPeriodEnd)
+        billingPeriodDisplay = try container.decodeIfPresent(String.self, forKey: .billingPeriodDisplay)
+        totalEmployees = try container.decodeIfPresent(Int.self, forKey: .totalEmployees)
+        payrollProcessingFee = try container.decodeIfPresent(Double.self, forKey: .payrollProcessingFee)
+        hrServicesFee = try container.decodeIfPresent(Double.self, forKey: .hrServicesFee)
+        benefitsAdministrationFee = try container.decodeIfPresent(Double.self, forKey: .benefitsAdministrationFee)
+        overdue = try container.decodeIfPresent(Bool.self, forKey: .overdue)
+        daysOverdue = try container.decodeIfPresent(Int.self, forKey: .daysOverdue)
+        employer = try container.decodeIfPresent(InvoiceEmployer.self, forKey: .employer)
     }
 }
 
@@ -629,8 +694,8 @@ struct DetailedInvoice: Codable, Identifiable {
     let payrollProcessingFee: Double?
     let hrServicesFee: Double?
     let benefitsAdministrationFee: Double?
-    let overdue: Bool
-    let daysOverdue: Int
+    let overdue: Bool?
+    let daysOverdue: Int?
     let lineItems: [InvoiceLineItem]
     let employer: InvoiceEmployer?
     let createdAt: String
@@ -653,9 +718,83 @@ struct DetailedInvoice: Codable, Identifiable {
         case hrServicesFee = "hr_services_fee"
         case benefitsAdministrationFee = "benefits_administration_fee"
         case daysOverdue = "days_overdue"
-        case lineItems = "line_items"
+        case lineItems = "invoice_line_items"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+    
+    // Custom decoder to handle string amounts from API
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        invoiceNumber = try container.decode(String.self, forKey: .invoiceNumber)
+        status = try container.decode(String.self, forKey: .status)
+        issueDate = try container.decode(String.self, forKey: .issueDate)
+        dueDate = try container.decode(String.self, forKey: .dueDate)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        
+        // Handle amounts that might be strings
+        if let totalAmountString = try? container.decode(String.self, forKey: .totalAmount) {
+            totalAmount = Double(totalAmountString) ?? 0.0
+        } else {
+            totalAmount = try container.decode(Double.self, forKey: .totalAmount)
+        }
+        
+        if let subtotalString = try? container.decode(String.self, forKey: .subtotal) {
+            subtotal = Double(subtotalString) ?? 0.0
+        } else {
+            subtotal = try container.decode(Double.self, forKey: .subtotal)
+        }
+        
+        if let taxAmountString = try? container.decode(String.self, forKey: .taxAmount) {
+            taxAmount = Double(taxAmountString) ?? 0.0
+        } else {
+            taxAmount = try container.decode(Double.self, forKey: .taxAmount)
+        }
+        
+        // Handle optional string amounts
+        if let discountString = try? container.decode(String.self, forKey: .discountAmount) {
+            discountAmount = Double(discountString)
+        } else {
+            discountAmount = try container.decodeIfPresent(Double.self, forKey: .discountAmount)
+        }
+        
+        if let lateFeeString = try? container.decode(String.self, forKey: .lateFee) {
+            lateFee = Double(lateFeeString)
+        } else {
+            lateFee = try container.decodeIfPresent(Double.self, forKey: .lateFee)
+        }
+        
+        if let payrollFeeString = try? container.decode(String.self, forKey: .payrollProcessingFee) {
+            payrollProcessingFee = Double(payrollFeeString)
+        } else {
+            payrollProcessingFee = try container.decodeIfPresent(Double.self, forKey: .payrollProcessingFee)
+        }
+        
+        if let hrFeeString = try? container.decode(String.self, forKey: .hrServicesFee) {
+            hrServicesFee = Double(hrFeeString)
+        } else {
+            hrServicesFee = try container.decodeIfPresent(Double.self, forKey: .hrServicesFee)
+        }
+        
+        if let benefitsFeeString = try? container.decode(String.self, forKey: .benefitsAdministrationFee) {
+            benefitsAdministrationFee = Double(benefitsFeeString)
+        } else {
+            benefitsAdministrationFee = try container.decodeIfPresent(Double.self, forKey: .benefitsAdministrationFee)
+        }
+        
+        // Handle other fields
+        currency = try container.decode(String.self, forKey: .currency)
+        billingPeriodStart = try container.decodeIfPresent(String.self, forKey: .billingPeriodStart)
+        billingPeriodEnd = try container.decodeIfPresent(String.self, forKey: .billingPeriodEnd)
+        billingPeriodDisplay = try container.decodeIfPresent(String.self, forKey: .billingPeriodDisplay)
+        totalEmployees = try container.decodeIfPresent(Int.self, forKey: .totalEmployees)
+        overdue = try container.decodeIfPresent(Bool.self, forKey: .overdue)
+        daysOverdue = try container.decodeIfPresent(Int.self, forKey: .daysOverdue)
+        lineItems = try container.decodeIfPresent([InvoiceLineItem].self, forKey: .lineItems) ?? []
+        employer = try container.decodeIfPresent(InvoiceEmployer.self, forKey: .employer)
     }
 }
 
@@ -691,6 +830,36 @@ struct InvoiceLineItem: Codable, Identifiable {
         case employeeName = "employee_name"
         case employeeId = "employee_id"
     }
+    
+    // Custom decoder to handle string prices from API
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(Int.self, forKey: .id)
+        description = try container.decode(String.self, forKey: .description)
+        quantity = try container.decode(Int.self, forKey: .quantity)
+        
+        // Handle unit_price as string or double
+        if let unitPriceString = try? container.decode(String.self, forKey: .unitPrice) {
+            unitPrice = Double(unitPriceString) ?? 0.0
+        } else {
+            unitPrice = try container.decode(Double.self, forKey: .unitPrice)
+        }
+        
+        // Handle total_price as string or double
+        if let totalPriceString = try? container.decode(String.self, forKey: .totalPrice) {
+            totalPrice = Double(totalPriceString) ?? 0.0
+        } else {
+            totalPrice = try container.decode(Double.self, forKey: .totalPrice)
+        }
+        
+        // Handle optional fields
+        lineItemType = try container.decodeIfPresent(String.self, forKey: .lineItemType)
+        serviceCategory = try container.decodeIfPresent(String.self, forKey: .serviceCategory)
+        employeeName = try container.decodeIfPresent(String.self, forKey: .employeeName)
+        employeeId = try container.decodeIfPresent(String.self, forKey: .employeeId)
+        serviceDate = try container.decodeIfPresent(String.self, forKey: .serviceDate)
+    }
 }
 
 struct InvoiceListResponse: Codable {
@@ -705,7 +874,7 @@ struct PaginationInfo: Codable {
     let totalPages: Int
     
     enum CodingKeys: String, CodingKey {
-        case currentPage = "current_page"
+        case currentPage = "page"
         case perPage = "per_page"
         case totalCount = "total_count"
         case totalPages = "total_pages"
