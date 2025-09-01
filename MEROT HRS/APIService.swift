@@ -475,7 +475,7 @@ class APIService: ObservableObject {
         experienceLevel: String? = nil,
         department: String? = nil
     ) async throws -> JobPostingsResponse {
-        var endpoint = "/job_postings?page=\(page)&per_page=\(perPage)"
+        var endpoint = "/admin/job_postings?page=\(page)&per_page=\(perPage)"
         
         if let search = search, !search.isEmpty {
             endpoint += "&search=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
@@ -498,7 +498,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<JobPostingsResponse> = try await networkManager.get(
-            endpoint: "/admin" + endpoint,
+            endpoint: endpoint,
             responseType: APIResponse<JobPostingsResponse>.self
         )
         
@@ -520,6 +520,141 @@ class APIService: ObservableObject {
         }
         
         return response.data.jobPosting
+    }
+    
+    // MARK: - Admin User Management Methods
+    
+    func getAdminUsers(
+        page: Int = 1,
+        perPage: Int = 50,
+        search: String? = nil,
+        userType: String? = nil,
+        role: String? = nil,
+        status: String? = nil
+    ) async throws -> AdminUsersResponse {
+        var endpoint = "/admin/users?page=\(page)&per_page=\(perPage)"
+        
+        if let search = search, !search.isEmpty {
+            endpoint += "&search=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+        
+        if let userType = userType, !userType.isEmpty {
+            endpoint += "&user_type=\(userType)"
+        }
+        
+        if let role = role, !role.isEmpty {
+            endpoint += "&role=\(role)"
+        }
+        
+        if let status = status, !status.isEmpty {
+            endpoint += "&status=\(status)"
+        }
+        
+        let response: APIResponse<AdminUsersResponse> = try await networkManager.get(
+            endpoint: endpoint,
+            responseType: APIResponse<AdminUsersResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
+        
+        return response.data
+    }
+    
+    func getAdminUser(id: Int) async throws -> AdminUserDetail {
+        let response: APIResponse<AdminUserDetailResponse> = try await networkManager.get(
+            endpoint: "/admin/users/\(id)",
+            responseType: APIResponse<AdminUserDetailResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
+        
+        return response.data.user
+    }
+    
+    func createAdminUser(request: CreateUserRequest) async throws -> AdminUserDetail {
+        let response: APIResponse<AdminUserDetailResponse> = try await networkManager.post(
+            endpoint: "/admin/users",
+            body: request,
+            responseType: APIResponse<AdminUserDetailResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
+        
+        return response.data.user
+    }
+    
+    func updateAdminUser(id: Int, request: UpdateUserRequest) async throws -> AdminUserDetail {
+        let response: APIResponse<AdminUserDetailResponse> = try await networkManager.put(
+            endpoint: "/admin/users/\(id)",
+            body: request,
+            responseType: APIResponse<AdminUserDetailResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
+        
+        return response.data.user
+    }
+    
+    func deleteAdminUser(id: Int) async throws {
+        let response: APIResponse<EmptyResponse> = try await networkManager.delete(
+            endpoint: "/admin/users/\(id)",
+            responseType: APIResponse<EmptyResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
+    }
+    
+    func suspendAdminUser(id: Int) async throws -> AdminUserDetail {
+        let emptyBody: [String: String] = [:]
+        let response: APIResponse<AdminUserDetailResponse> = try await networkManager.post(
+            endpoint: "/admin/users/\(id)/suspend",
+            body: emptyBody,
+            responseType: APIResponse<AdminUserDetailResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
+        
+        return response.data.user
+    }
+    
+    func activateAdminUser(id: Int) async throws -> AdminUserDetail {
+        let emptyBody: [String: String] = [:]
+        let response: APIResponse<AdminUserDetailResponse> = try await networkManager.post(
+            endpoint: "/admin/users/\(id)/activate",
+            body: emptyBody,
+            responseType: APIResponse<AdminUserDetailResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
+        
+        return response.data.user
+    }
+    
+    func resetAdminUserPassword(id: Int) async throws {
+        let emptyBody: [String: String] = [:]
+        let response: APIResponse<PasswordResetResponse> = try await networkManager.post(
+            endpoint: "/admin/users/\(id)/reset_password",
+            body: emptyBody,
+            responseType: APIResponse<PasswordResetResponse>.self
+        )
+        
+        guard response.success else {
+            throw NetworkManager.NetworkError.serverError(response.message ?? "Unknown error")
+        }
     }
     
     // MARK: - Admin API Methods
@@ -554,7 +689,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<AdminEmployersResponse> = try await networkManager.get(
-            endpoint: "/admin" + endpoint,
+            endpoint: endpoint,
             responseType: APIResponse<AdminEmployersResponse>.self
         )
         
@@ -663,7 +798,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<AdminEmployeesResponse> = try await networkManager.get(
-            endpoint: "/admin" + endpoint,
+            endpoint: endpoint,
             responseType: APIResponse<AdminEmployeesResponse>.self
         )
         
@@ -902,4 +1037,121 @@ struct AdminEmployeeCreateRequest: Codable {
         case postcode
     }
 }
+
+// MARK: - Admin User Management Response Types
+struct AdminUsersResponse: Codable {
+    let users: [AdminUserDetail]
+    let pagination: PaginationInfo
+}
+
+struct AdminUserDetailResponse: Codable {
+    let user: AdminUserDetail
+}
+
+struct AdminUserDetail: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let email: String
+    let userType: String
+    let status: String
+    let role: String?
+    let isSuperAdmin: Bool?
+    let employer: EmployerInfo?
+    let department: String?
+    let employeeId: String?
+    let lastLogin: String?
+    let createdAt: String
+    let updatedAt: String
+    let phoneNumber: String?
+    let address: String?
+    let city: String?
+    let country: String?
+    let signInCount: Int?
+    let currentSignInAt: String?
+    let suspendedAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case email
+        case userType = "user_type"
+        case status
+        case role
+        case isSuperAdmin = "is_super_admin"
+        case employer
+        case department
+        case employeeId = "employee_id"
+        case lastLogin = "last_login"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case phoneNumber = "phone_number"
+        case address
+        case city
+        case country
+        case signInCount = "sign_in_count"
+        case currentSignInAt = "current_sign_in_at"
+        case suspendedAt = "suspended_at"
+    }
+    
+    struct EmployerInfo: Codable {
+        let id: Int
+        let name: String
+    }
+}
+
+struct CreateUserRequest: Codable {
+    let userType: String
+    let email: String
+    let firstName: String
+    let lastName: String
+    let password: String?
+    let sendWelcomeEmail: Bool
+    let employerId: Int?
+    let department: String?
+    let role: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case userType = "user_type"
+        case email
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case password
+        case sendWelcomeEmail = "send_welcome_email"
+        case employerId = "employer_id"
+        case department
+        case role
+    }
+}
+
+struct UpdateUserRequest: Codable {
+    let email: String?
+    let firstName: String?
+    let lastName: String?
+    let phoneNumber: String?
+    let department: String?
+    let status: String?
+    let role: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case email
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case phoneNumber = "phone_number"
+        case department
+        case status
+        case role
+    }
+}
+
+struct PasswordResetResponse: Codable {
+    let message: String
+    let emailSent: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case message
+        case emailSent = "email_sent"
+    }
+}
+
+struct EmptyResponse: Codable {}
 

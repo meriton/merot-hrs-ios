@@ -2,14 +2,16 @@ import SwiftUI
 
 struct UserManagementView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var cachedAPIService = CachedAPIService()
-    @State private var users: [AdminUser] = []
+    @StateObject private var apiService = APIService()
+    @State private var users: [AdminUserDetail] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var searchText = ""
     @State private var selectedRole: UserRole = .all
     @State private var showingAddUser = false
-    @State private var showingUserDetails: AdminUser?
+    @State private var showingUserDetails: AdminUserDetail?
+    @State private var currentPage = 1
+    @State private var hasMoreUsers = true
     
     enum UserRole: String, CaseIterable {
         case all = "All"
@@ -19,13 +21,15 @@ struct UserManagementView: View {
         case suspended = "Suspended"
     }
     
-    var filteredUsers: [AdminUser] {
+    var filteredUsers: [AdminUserDetail] {
         users.filter { user in
             let matchesSearch = searchText.isEmpty || 
                                user.name.localizedCaseInsensitiveContains(searchText) ||
                                user.email.localizedCaseInsensitiveContains(searchText)
             
-            let matchesRole = selectedRole == .all || user.role.rawValue == selectedRole.rawValue
+            let matchesRole = selectedRole == .all || 
+                             (user.role?.lowercased() == selectedRole.rawValue.lowercased()) ||
+                             (user.status.lowercased() == selectedRole.rawValue.lowercased())
             
             return matchesSearch && matchesRole
         }
@@ -46,6 +50,9 @@ struct UserManagementView: View {
                         if !searchText.isEmpty {
                             Button(action: {
                                 searchText = ""
+                                Task {
+                                    await refreshUsers()
+                                }
                             }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.secondary)
@@ -56,12 +63,20 @@ struct UserManagementView: View {
                     .padding(.vertical, 8)
                     .background(Color(.systemGray6))
                     .cornerRadius(10)
+                    .onSubmit {
+                        Task {
+                            await refreshUsers()
+                        }
+                    }
                     
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(UserRole.allCases, id: \.self) { role in
                                 Button(action: {
                                     selectedRole = role
+                                    Task {
+                                        await refreshUsers()
+                                    }
                                 }) {
                                     Text(role.rawValue)
                                         .font(.caption)
@@ -170,19 +185,24 @@ struct UserManagementView: View {
             errorMessage = nil
         }
         
-        // Simulate loading users - replace with actual API call
         do {
-            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            
-            let sampleUsers = [
-                AdminUser(id: 1, name: "John Admin", email: "john@merot.com", role: .admin, status: .active, lastLogin: Date().addingTimeInterval(-3600), createdAt: Date().addingTimeInterval(-86400 * 30)),
-                AdminUser(id: 2, name: "Sarah Manager", email: "sarah@merot.com", role: .manager, status: .active, lastLogin: Date().addingTimeInterval(-7200), createdAt: Date().addingTimeInterval(-86400 * 15)),
-                AdminUser(id: 3, name: "Mike Employee", email: "mike@merot.com", role: .employee, status: .active, lastLogin: Date().addingTimeInterval(-86400), createdAt: Date().addingTimeInterval(-86400 * 7)),
-                AdminUser(id: 4, name: "Lisa Suspended", email: "lisa@merot.com", role: .employee, status: .suspended, lastLogin: Date().addingTimeInterval(-86400 * 7), createdAt: Date().addingTimeInterval(-86400 * 60))
-            ]
+            let response = try await apiService.getAdminUsers(
+                page: currentPage,
+                perPage: 50,
+                search: searchText.isEmpty ? nil : searchText,
+                userType: nil,
+                role: selectedRole == .all ? nil : selectedRole.rawValue.lowercased(),
+                status: nil
+            )
             
             await MainActor.run {
-                users = sampleUsers
+                if currentPage == 1 {
+                    users = response.users
+                } else {
+                    users.append(contentsOf: response.users)
+                }
+                
+                hasMoreUsers = response.pagination.page < response.pagination.totalPages
                 isLoading = false
             }
         } catch {
@@ -192,49 +212,53 @@ struct UserManagementView: View {
             }
         }
     }
+    
+    private func refreshUsers() async {
+        await MainActor.run {
+            currentPage = 1
+            hasMoreUsers = true
+        }
+        await loadUsers()
+    }
 }
 
-struct AdminUser: Identifiable {
-    let id: Int
-    let name: String
-    let email: String
-    let role: UserRole
-    let status: UserStatus
-    let lastLogin: Date
-    let createdAt: Date
+struct InfoRow: View {
+    let label: String
+    let value: String
     
-    enum UserRole: String, CaseIterable {
-        case admin = "Admin"
-        case manager = "Manager"
-        case employee = "Employee"
-        
-        var color: Color {
-            switch self {
-            case .admin: return .red
-            case .manager: return .orange
-            case .employee: return .blue
-            }
-        }
-    }
-    
-    enum UserStatus: String, CaseIterable {
-        case active = "Active"
-        case suspended = "Suspended"
-        case pending = "Pending"
-        
-        var color: Color {
-            switch self {
-            case .active: return .green
-            case .suspended: return .red
-            case .pending: return .orange
-            }
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Text(value)
+                .foregroundColor(.secondary)
         }
     }
 }
 
 struct UserRow: View {
-    let user: AdminUser
+    let user: AdminUserDetail
     let onTap: () -> Void
+    
+    var roleColor: Color {
+        guard let role = user.role else { return .gray }
+        switch role.lowercased() {
+        case "admin": return .red
+        case "manager": return .orange
+        case "employee": return .blue
+        case "employer": return .purple
+        default: return .gray
+        }
+    }
+    
+    var statusColor: Color {
+        switch user.status.lowercased() {
+        case "active": return .green
+        case "suspended": return .red
+        case "pending": return .orange
+        default: return .gray
+        }
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -249,33 +273,47 @@ struct UserRow: View {
                         Text(user.email)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                        
+                        // Show employer if available
+                        if let employer = user.employer {
+                            Text("@ \(employer.name)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
                     Spacer()
                     
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(user.role.rawValue)
+                        Text(user.role?.capitalized ?? user.userType.capitalized)
                             .font(.caption)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(user.role.color.opacity(0.2))
-                            .foregroundColor(user.role.color)
+                            .background(roleColor.opacity(0.2))
+                            .foregroundColor(roleColor)
                             .cornerRadius(8)
                         
-                        Text(user.status.rawValue)
+                        Text(user.status.capitalized)
                             .font(.caption)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(user.status.color.opacity(0.2))
-                            .foregroundColor(user.status.color)
+                            .background(statusColor.opacity(0.2))
+                            .foregroundColor(statusColor)
                             .cornerRadius(8)
                     }
                 }
                 
                 HStack {
-                    Label("Last login: \(user.lastLogin, style: .relative)", systemImage: "clock")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if let lastLogin = user.lastLogin,
+                       let loginDate = ISO8601DateFormatter().date(from: lastLogin) {
+                        Label("Last login: \(loginDate, style: .relative)", systemImage: "clock")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Label("Never logged in", systemImage: "clock")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                     
                     Spacer()
                     
@@ -347,9 +385,29 @@ struct AddUserView: View {
 }
 
 struct UserDetailView: View {
-    let user: AdminUser
+    let user: AdminUserDetail
     @Environment(\.dismiss) private var dismiss
     @State private var showingDeleteConfirmation = false
+    
+    var roleColor: Color {
+        guard let role = user.role else { return .gray }
+        switch role.lowercased() {
+        case "admin": return .red
+        case "manager": return .orange
+        case "employee": return .blue
+        case "employer": return .purple
+        default: return .gray
+        }
+    }
+    
+    var statusColor: Color {
+        switch user.status.lowercased() {
+        case "active": return .green
+        case "suspended": return .red
+        case "pending": return .orange
+        default: return .gray
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -358,54 +416,93 @@ struct UserDetailView: View {
                     InfoRow(label: "Name", value: user.name)
                     InfoRow(label: "Email", value: user.email)
                     InfoRow(label: "User ID", value: "\(user.id)")
+                    InfoRow(label: "User Type", value: user.userType.capitalized)
+                    
+                    if let employer = user.employer {
+                        InfoRow(label: "Company", value: employer.name)
+                    }
+                    
+                    if let department = user.department {
+                        InfoRow(label: "Department", value: department)
+                    }
+                    
+                    if let employeeId = user.employeeId {
+                        InfoRow(label: "Employee ID", value: employeeId)
+                    }
                 }
                 
                 Section("Access") {
                     HStack {
                         Text("Role")
                         Spacer()
-                        Text(user.role.rawValue)
+                        Text(user.role?.capitalized ?? user.userType.capitalized)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(user.role.color.opacity(0.2))
-                            .foregroundColor(user.role.color)
+                            .background(roleColor.opacity(0.2))
+                            .foregroundColor(roleColor)
                             .cornerRadius(8)
                     }
                     
                     HStack {
                         Text("Status")
                         Spacer()
-                        Text(user.status.rawValue)
+                        Text(user.status.capitalized)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(user.status.color.opacity(0.2))
-                            .foregroundColor(user.status.color)
+                            .background(statusColor.opacity(0.2))
+                            .foregroundColor(statusColor)
                             .cornerRadius(8)
+                    }
+                    
+                    if user.isSuperAdmin == true {
+                        HStack {
+                            Text("Super Admin")
+                            Spacer()
+                            Image(systemName: "star.fill")
+                                .foregroundColor(.gold)
+                        }
                     }
                 }
                 
                 Section("Activity") {
-                    InfoRow(label: "Last Login", value: user.lastLogin.formatted(date: .abbreviated, time: .shortened))
-                    InfoRow(label: "Account Created", value: user.createdAt.formatted(date: .abbreviated, time: .omitted))
+                    if let lastLogin = user.lastLogin,
+                       let loginDate = ISO8601DateFormatter().date(from: lastLogin) {
+                        InfoRow(label: "Last Login", value: loginDate.formatted(date: .abbreviated, time: .shortened))
+                    } else {
+                        InfoRow(label: "Last Login", value: "Never")
+                    }
+                    
+                    if let createdDate = ISO8601DateFormatter().date(from: user.createdAt) {
+                        InfoRow(label: "Account Created", value: createdDate.formatted(date: .abbreviated, time: .omitted))
+                    }
+                    
+                    if let signInCount = user.signInCount {
+                        InfoRow(label: "Sign In Count", value: "\(signInCount)")
+                    }
+                    
+                    if let suspendedAt = user.suspendedAt,
+                       let suspendedDate = ISO8601DateFormatter().date(from: suspendedAt) {
+                        InfoRow(label: "Suspended On", value: suspendedDate.formatted(date: .abbreviated, time: .shortened))
+                    }
                 }
                 
                 Section("Actions") {
                     Button("Reset Password") {
-                        // TODO: Implement password reset
+                        // TODO: Implement password reset with API call
                     }
                     
                     Button("Send Welcome Email") {
                         // TODO: Implement welcome email
                     }
                     
-                    if user.status == .active {
+                    if user.status.lowercased() == "active" {
                         Button("Suspend User") {
-                            // TODO: Implement user suspension
+                            // TODO: Implement user suspension with API call
                         }
                         .foregroundColor(.orange)
                     } else {
                         Button("Activate User") {
-                            // TODO: Implement user activation
+                            // TODO: Implement user activation with API call
                         }
                         .foregroundColor(.green)
                     }
