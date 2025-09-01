@@ -21,7 +21,7 @@ struct LoginView: View {
                     .foregroundColor(colorScheme == .dark ? .white : nil)
                     .padding(12)
                 
-                Text(userType == "admin" ? "Admin Dashboard" : "Employer Dashboard")
+                Text(userType == "admin" ? "Admin Dashboard" : userType == "employee" ? "Employee Portal" : "Employer Dashboard")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
@@ -36,6 +36,7 @@ struct LoginView: View {
                                 .foregroundColor(.secondary)
                             Picker("User Type", selection: $userType) {
                                 Text("Employer").tag("employer")
+                                Text("Employee").tag("employee")
                                 Text("Admin").tag("admin")
                             }
                             .pickerStyle(SegmentedPickerStyle())

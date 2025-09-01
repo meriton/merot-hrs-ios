@@ -109,6 +109,9 @@ struct MainContentView: View {
                     if currentUser.userType == "admin" {
                         AdminDashboardView()
                             .environmentObject(authService)
+                    } else if currentUser.userType == "employee" {
+                        EmployeeDashboardView()
+                            .environmentObject(authService)
                     } else {
                         DashboardView()
                             .environmentObject(authService)
