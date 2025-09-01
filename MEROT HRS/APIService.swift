@@ -13,7 +13,7 @@ class APIService: ObservableObject {
     
     func getDashboard() async throws -> DashboardData {
         let response: APIResponse<DashboardData> = try await networkManager.get(
-            endpoint: "/api/employers/dashboard",
+            endpoint: "/employers/dashboard",
             responseType: APIResponse<DashboardData>.self
         )
         
@@ -26,7 +26,7 @@ class APIService: ObservableObject {
     
     func getEmployerProfile() async throws -> Employer {
         let response: APIResponse<UserProfileWrapperForAPI> = try await networkManager.get(
-            endpoint: "/api/employers/profile",
+            endpoint: "/employers/profile",
             responseType: APIResponse<UserProfileWrapperForAPI>.self
         )
         
@@ -44,7 +44,7 @@ class APIService: ObservableObject {
         let updateRequest = ["employer": employer]
         
         let response: APIResponse<Employer> = try await networkManager.put(
-            endpoint: "/api/employers/profile",
+            endpoint: "/employers/profile",
             body: updateRequest,
             responseType: APIResponse<Employer>.self
         )
@@ -73,7 +73,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<EmployeeListData> = try await networkManager.get(
-            endpoint: "/api/employers" + endpoint,
+            endpoint: "/employers" + endpoint,
             responseType: APIResponse<EmployeeListData>.self
         )
         
@@ -89,7 +89,7 @@ class APIService: ObservableObject {
     
     func getEmployee(id: Int) async throws -> Employee {
         let response: APIResponse<AdminEmployeeResponse> = try await networkManager.get(
-            endpoint: "/api/employers/employees/\(id)",
+            endpoint: "/employers/employees/\(id)",
             responseType: APIResponse<AdminEmployeeResponse>.self
         )
         
@@ -104,7 +104,7 @@ class APIService: ObservableObject {
         let updateRequest = ["employee": employee]
         
         let response: APIResponse<AdminEmployeeResponse> = try await networkManager.put(
-            endpoint: "/api/employers/employees/\(id)",
+            endpoint: "/employers/employees/\(id)",
             body: updateRequest,
             responseType: APIResponse<AdminEmployeeResponse>.self
         )
@@ -143,7 +143,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<TimeOffRequestListData> = try await networkManager.get(
-            endpoint: "/api/employers" + endpoint,
+            endpoint: "/employers" + endpoint,
             responseType: APIResponse<TimeOffRequestListData>.self
         )
         
@@ -156,7 +156,7 @@ class APIService: ObservableObject {
     
     func getTimeOffRequest(id: Int) async throws -> TimeOffRequest {
         let response: APIResponse<TimeOffRequest> = try await networkManager.get(
-            endpoint: "/api/employers/time_off_requests/\(id)",
+            endpoint: "/employers/time_off_requests/\(id)",
             responseType: APIResponse<TimeOffRequest>.self
         )
         
@@ -170,7 +170,7 @@ class APIService: ObservableObject {
     func approveTimeOffRequest(id: Int) async throws -> TimeOffRequest {
         let emptyBody: [String: String] = [:]
         let response: APIResponse<TimeOffRequestResponse> = try await networkManager.put(
-            endpoint: "/api/employers/time_off_requests/\(id)/approve",
+            endpoint: "/employers/time_off_requests/\(id)/approve",
             body: emptyBody,
             responseType: APIResponse<TimeOffRequestResponse>.self
         )
@@ -185,7 +185,7 @@ class APIService: ObservableObject {
     func denyTimeOffRequest(id: Int) async throws -> TimeOffRequest {
         let emptyBody: [String: String] = [:]
         let response: APIResponse<TimeOffRequestResponse> = try await networkManager.put(
-            endpoint: "/api/employers/time_off_requests/\(id)/deny",
+            endpoint: "/employers/time_off_requests/\(id)/deny",
             body: emptyBody,
             responseType: APIResponse<TimeOffRequestResponse>.self
         )
@@ -199,7 +199,7 @@ class APIService: ObservableObject {
     
     func getTimeOffStats() async throws -> TimeOffStats {
         let response: APIResponse<TimeOffStats> = try await networkManager.get(
-            endpoint: "/api/employers/time_off_requests/stats",
+            endpoint: "/employers/time_off_requests/stats",
             responseType: APIResponse<TimeOffStats>.self
         )
         
@@ -229,7 +229,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<AnalyticsOverview> = try await networkManager.get(
-            endpoint: "/api/employers" + endpoint,
+            endpoint: "/employers" + endpoint,
             responseType: APIResponse<AnalyticsOverview>.self
         )
         
@@ -242,7 +242,7 @@ class APIService: ObservableObject {
     
     func getEmployeeAnalytics() async throws -> AnalyticsOverview {
         let response: APIResponse<AnalyticsOverview> = try await networkManager.get(
-            endpoint: "/api/employers/analytics/employees",
+            endpoint: "/employers/analytics/employees",
             responseType: APIResponse<AnalyticsOverview>.self
         )
         
@@ -255,7 +255,7 @@ class APIService: ObservableObject {
     
     func getDetailedEmployer(id: Int) async throws -> DetailedEmployerResponse {
         let response: APIResponse<DetailedEmployerResponse> = try await networkManager.get(
-            endpoint: "/api/admin/employers/\(id)",
+            endpoint: "/admin/employers/\(id)",
             responseType: APIResponse<DetailedEmployerResponse>.self
         )
         
@@ -274,7 +274,7 @@ class APIService: ObservableObject {
     ) async throws -> [Invoice] {
         // Check if current user is an admin and use appropriate endpoint
         let isAdmin = await isCurrentUserAdmin()
-        let baseEndpoint = isAdmin ? "/api/admin/invoices" : "/api/employers/invoices"
+        let baseEndpoint = isAdmin ? "/admin/invoices" : "/employers/invoices"
         var endpoint = "\(baseEndpoint)?page=\(page)&per_page=\(perPage)"
         
         if let status = status {
@@ -364,7 +364,7 @@ class APIService: ObservableObject {
     func getInvoiceDetails(id: Int) async throws -> DetailedInvoice {
         // Check if current user is an admin and use appropriate endpoint
         let isAdmin = await isCurrentUserAdmin()
-        let endpoint = isAdmin ? "/api/admin/invoices/\(id)" : "/api/employers/invoices/\(id)"
+        let endpoint = isAdmin ? "/admin/invoices/\(id)" : "/employers/invoices/\(id)"
         
         let response: APIResponse<InvoiceDetailResponse> = try await networkManager.get(
             endpoint: endpoint,
@@ -381,7 +381,7 @@ class APIService: ObservableObject {
     func downloadInvoicePDF(id: Int) async throws -> Data {
         // Check if current user is an admin and use appropriate endpoint
         let isAdmin = await isCurrentUserAdmin()
-        let endpoint = isAdmin ? "/api/admin/invoices/\(id)/download_pdf" : "/api/employers/invoices/\(id)/download_pdf"
+        let endpoint = isAdmin ? "/admin/invoices/\(id)/download_pdf" : "/employers/invoices/\(id)/download_pdf"
         
         guard let url = URL(string: "\(NetworkManager.shared.baseURL)\(endpoint)") else {
             throw NetworkManager.NetworkError.invalidURL
@@ -434,7 +434,7 @@ class APIService: ObservableObject {
     // MARK: - Holiday Methods
     func getHolidays() async throws -> HolidaysResponse {
         let response: APIResponse<HolidaysResponse> = try await networkManager.get(
-            endpoint: "/api/employers/holidays",
+            endpoint: "/employers/holidays",
             responseType: APIResponse<HolidaysResponse>.self
         )
         
@@ -450,7 +450,7 @@ class APIService: ObservableObject {
         Task {
             do {
                 let response: APIResponse<EmployerProfileData> = try await networkManager.get(
-                    endpoint: "/api/employers/profile",
+                    endpoint: "/employers/profile",
                     responseType: APIResponse<EmployerProfileData>.self
                 )
                 
@@ -498,7 +498,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<JobPostingsResponse> = try await networkManager.get(
-            endpoint: "/api/admin" + endpoint,
+            endpoint: "/admin" + endpoint,
             responseType: APIResponse<JobPostingsResponse>.self
         )
         
@@ -511,7 +511,7 @@ class APIService: ObservableObject {
     
     func getJobPosting(id: Int) async throws -> JobPosting {
         let response: APIResponse<JobPostingDetailResponse> = try await networkManager.get(
-            endpoint: "/api/admin/job_postings/\(id)",
+            endpoint: "/admin/job_postings/\(id)\",
             responseType: APIResponse<JobPostingDetailResponse>.self
         )
         
@@ -526,7 +526,7 @@ class APIService: ObservableObject {
     
     func getAdminDashboard() async throws -> AdminDashboardData {
         let response: APIResponse<AdminDashboardResponse> = try await networkManager.get(
-            endpoint: "/api/admin/dashboard",
+            endpoint: "/admin/dashboard",
             responseType: APIResponse<AdminDashboardResponse>.self
         )
         
@@ -554,7 +554,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<AdminEmployersResponse> = try await networkManager.get(
-            endpoint: "/api/admin" + endpoint,
+            endpoint: "/admin" + endpoint,
             responseType: APIResponse<AdminEmployersResponse>.self
         )
         
@@ -596,7 +596,7 @@ class APIService: ObservableObject {
         )
         
         let response: APIResponse<AdminEmployeeResponse> = try await networkManager.put(
-            endpoint: "/api/admin/employees/\(id)",
+            endpoint: "/admin/employees/\(id)",
             body: requestBody,
             responseType: APIResponse<AdminEmployeeResponse>.self
         )
@@ -610,7 +610,7 @@ class APIService: ObservableObject {
     
     func createAdminEmployee(employee: AdminEmployeeCreateRequest) async throws -> Employee {
         let response: APIResponse<AdminEmployeeResponse> = try await networkManager.post(
-            endpoint: "/api/admin/employees",
+            endpoint: "/admin/employees",
             body: ["employee": employee],
             responseType: APIResponse<AdminEmployeeResponse>.self
         )
@@ -626,7 +626,7 @@ class APIService: ObservableObject {
         let request = BankNameLookupRequest(accountNumber: accountNumber, country: country)
         
         let response: APIResponse<BankNameLookupResponse> = try await networkManager.post(
-            endpoint: "/api/admin/bank_name_lookup",
+            endpoint: "/admin/bank_name_lookup",
             body: request,
             responseType: APIResponse<BankNameLookupResponse>.self
         )
@@ -640,7 +640,7 @@ class APIService: ObservableObject {
     
     func getAdminEmployee(id: Int) async throws -> Employee {
         let response: APIResponse<AdminEmployeeResponse> = try await networkManager.get(
-            endpoint: "/api/admin/employees/\(id)",
+            endpoint: "/admin/employees/\(id)",
             responseType: APIResponse<AdminEmployeeResponse>.self
         )
         
@@ -663,7 +663,7 @@ class APIService: ObservableObject {
         }
         
         let response: APIResponse<AdminEmployeesResponse> = try await networkManager.get(
-            endpoint: "/api/admin" + endpoint,
+            endpoint: "/admin" + endpoint,
             responseType: APIResponse<AdminEmployeesResponse>.self
         )
         
