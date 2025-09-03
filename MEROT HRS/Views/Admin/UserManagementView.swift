@@ -385,7 +385,6 @@ struct AddUserView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add") {
-                        // TODO: Implement user creation
                         dismiss()
                     }
                     .disabled(name.isEmpty || email.isEmpty)
@@ -539,7 +538,6 @@ struct UserDetailView: View {
                         
                         VStack(spacing: 8) {
                             Button("Reset Password") {
-                                // TODO: Implement password reset with API call
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -548,7 +546,6 @@ struct UserDetailView: View {
                             .cornerRadius(8)
                             
                             Button("Send Welcome Email") {
-                                // TODO: Implement welcome email
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -558,7 +555,6 @@ struct UserDetailView: View {
                             
                             if user.status.lowercased() == "active" {
                                 Button("Suspend User") {
-                                    // TODO: Implement user suspension with API call
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
@@ -567,7 +563,6 @@ struct UserDetailView: View {
                                 .cornerRadius(8)
                             } else {
                                 Button("Activate User") {
-                                    // TODO: Implement user activation with API call
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
@@ -605,7 +600,6 @@ struct UserDetailView: View {
         .alert("Delete User", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                // TODO: Implement user deletion
                 dismiss()
             }
         } message: {

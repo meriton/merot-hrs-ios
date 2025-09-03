@@ -329,14 +329,13 @@ class APIService: ObservableObject {
                              isSuperAdmin || 
                              hasAdminRole
                 
-                print("Admin status check: userType=\(userType), isSuperAdmin=\(isSuperAdmin), hasAdminRole=\(hasAdminRole), isAdmin=\(isAdmin)")
+                // Admin status determined
                 
                 // Cache the result
                 self.cachedIsAdmin = isAdmin
                 return isAdmin
             } catch {
                 // If we can't determine user type, default to non-admin endpoint
-                print("Failed to determine user admin status: \(error)")
                 self.cachedIsAdmin = false
                 return false
             }
@@ -413,21 +412,14 @@ class APIService: ObservableObject {
         // Validate that we received PDF data
         // PDF files start with "%PDF" magic bytes
         if data.count < 5 {
-            print("ERROR: Received data is too small (\(data.count) bytes)")
             throw NetworkManager.NetworkError.serverError("Invalid PDF data - too small")
         }
         
         let pdfHeader = String(data: data.prefix(5), encoding: .ascii)
         if pdfHeader != "%PDF-" {
-            print("ERROR: Data doesn't appear to be PDF. First bytes: \(data.prefix(100).map { String(format: "%02x", $0) }.joined())")
-            // Try to see if it's JSON error response
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("Received JSON instead of PDF: \(jsonString)")
-            }
             throw NetworkManager.NetworkError.serverError("Invalid PDF data - not a PDF file")
         }
         
-        print("Successfully received PDF data: \(data.count) bytes")
         return data
     }
     

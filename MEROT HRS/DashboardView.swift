@@ -131,7 +131,7 @@ struct DashboardView: View {
                 loadEmployerProfile()
             }
         }
-        .onChange(of: selectedTab) { newTab in
+        .onChange(of: selectedTab) { _, newTab in
             // Refresh dashboard data when returning to dashboard tab
             if newTab == 0 {
                 Task {
@@ -171,8 +171,9 @@ struct DashboardView: View {
                 switch result {
                 case .success(let profile):
                     self.employerProfile = profile
-                case .failure(let error):
-                    print("Failed to load employer profile: \(error)")
+                case .failure(_):
+                    // Failed to load employer profile
+                    break
                 }
             }
         }
@@ -236,37 +237,6 @@ struct DashboardStatsView: View {
     }
 }
 
-struct StatCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: icon)
-                        .foregroundColor(color)
-                    Spacer()
-                }
-                
-                Text(value)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
 
 struct RecentActivitiesView: View {
     let activities: [DashboardActivity]

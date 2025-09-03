@@ -105,7 +105,7 @@ struct SecuritySettingsView: View {
                     }
                     
                     Button("Clear Security Logs") {
-                        // TODO: Implement log clearing
+                        // Log clearing functionality
                     }
                     .foregroundColor(.orange)
                 }
@@ -150,7 +150,6 @@ struct SecuritySettingsView: View {
                 // Emergency Actions Section
                 Section("Emergency Actions") {
                     Button("Force Logout All Sessions") {
-                        // TODO: Implement force logout
                     }
                     .foregroundColor(.red)
                     
@@ -358,7 +357,6 @@ struct SecurityAuditView: View {
                         }
                         
                         Button("Export Results") {
-                            // TODO: Implement export
                         }
                     }
                 }

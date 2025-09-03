@@ -1274,3 +1274,31 @@ struct EmployeePayrollRecordList: Codable {
         case pagination
     }
 }
+
+struct EmployeeTimeOffRequestResponse: Codable {
+    let timeOffRequest: EmployeeTimeOffRequest
+    
+    enum CodingKeys: String, CodingKey {
+        case timeOffRequest = "time_off_request"
+    }
+}
+
+struct CreateTimeOffRequestData: Codable {
+    let timeOffRequest: CreateTimeOffRequest
+    
+    enum CodingKeys: String, CodingKey {
+        case timeOffRequest = "time_off_request"
+    }
+}
+
+struct CreateTimeOffRequest: Codable {
+    let timeOffRecordId: Int
+    let startDate: String
+    let endDate: String
+    
+    enum CodingKeys: String, CodingKey {
+        case timeOffRecordId = "time_off_record_id"
+        case startDate = "start_date"
+        case endDate = "end_date"
+    }
+}

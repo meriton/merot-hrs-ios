@@ -117,7 +117,7 @@ struct EmployeesView: View {
                 await loadEmployees()
             }
         }
-        .onChange(of: filterFromDashboard) { newFilter in
+        .onChange(of: filterFromDashboard) { _, newFilter in
             if let newFilter = newFilter, statusOptions.contains(newFilter) {
                 selectedStatus = newFilter
                 currentPage = 1

@@ -146,7 +146,7 @@ struct AdminHomeView: View {
         isLoading = true
         errorMessage = nil
         
-        print("AdminDashboardView: Starting loadAdminDashboard with forceRefresh: \(forceRefresh)")
+        // Loading admin dashboard data
         
         currentTask = Task {
             do {
@@ -159,26 +159,23 @@ struct AdminHomeView: View {
                 try Task.checkCancellation()
                 
                 await MainActor.run {
-                    print("AdminDashboardView: Successfully loaded dashboard data")
+                    // Successfully loaded dashboard data
                 }
             } catch is CancellationError {
                 await MainActor.run {
-                    print("AdminDashboardView: Task was cancelled")
-                    // Don't show error message for cancelled requests
+                    // Task was cancelled - don't show error message for cancelled requests
                     isLoading = false
                 }
                 return
             } catch let networkError as NetworkManager.NetworkError {
                 await MainActor.run {
-                    print("AdminDashboardView: NetworkManager error: \(networkError)")
+                    // Handle network error
                     switch networkError {
                     case .decodingError:
                         errorMessage = "Failed to load dashboard data. Please try again later."
-                        print("Admin Dashboard Decoding Error: \(networkError)")
                         
                         // If decoding fails and we were trying to use cache, try to clear cache and fetch fresh
                         if !forceRefresh {
-                            print("AdminDashboardView: Clearing cache and retrying with fresh data")
                             cachedAPIService.invalidateAdminCache()
                             
                             // Schedule retry with force refresh
@@ -188,11 +185,11 @@ struct AdminHomeView: View {
                                     await MainActor.run {
                                         dashboardData = freshData
                                         errorMessage = nil
-                                        print("AdminDashboardView: Successfully loaded fresh data after cache clear")
+                                        // Successfully loaded fresh data after cache clear
                                     }
                                 } catch {
                                     await MainActor.run {
-                                        print("AdminDashboardView: Failed even after clearing cache: \(error)")
+                                        // Failed even after clearing cache
                                         errorMessage = "Failed to load dashboard data. Please check your connection and try again."
                                     }
                                 }
@@ -205,7 +202,7 @@ struct AdminHomeView: View {
                         if let nsError = underlyingError as NSError?,
                            nsError.domain == NSURLErrorDomain,
                            nsError.code == NSURLErrorCancelled {
-                            print("AdminDashboardView: Network request was cancelled - this is normal for pull-to-refresh")
+                            // Network request was cancelled - this is normal for pull-to-refresh
                             // Don't show error message for cancelled requests
                         } else {
                             errorMessage = "Network error: \(underlyingError.localizedDescription)"
@@ -219,11 +216,9 @@ struct AdminHomeView: View {
             } catch {
                 await MainActor.run {
                     errorMessage = "Unexpected error: \(error.localizedDescription)"
-                    print("Admin Dashboard Unexpected Error: \(error)")
                     
                     // If there's an unexpected error and we haven't force refreshed yet, try clearing cache
                     if !forceRefresh {
-                        print("AdminDashboardView: Clearing cache due to unexpected error and retrying")
                         cachedAPIService.invalidateAdminCache()
                     }
                 }
@@ -234,7 +229,7 @@ struct AdminHomeView: View {
         
         await MainActor.run {
             isLoading = false
-            print("AdminDashboardView: Finished loadAdminDashboard")
+            // Finished loading admin dashboard
         }
     }
 }
@@ -609,7 +604,6 @@ struct AdminEmployersView: View {
             switch networkError {
             case .decodingError:
                 errorMessage = "Failed to load employers data. Please try again later."
-                print("Employers Decoding Error: \(networkError)")
             case .authenticationError:
                 errorMessage = "Authentication failed. Please log in again."
             case .serverError(let message):
@@ -621,7 +615,6 @@ struct AdminEmployersView: View {
             }
         } catch {
             errorMessage = "Unexpected error: \(error.localizedDescription)"
-            print("Employers Unexpected Error: \(error)")
         }
         
         isLoading = false
@@ -1469,7 +1462,6 @@ struct AdminEmployeesView: View {
             switch networkError {
             case .decodingError:
                 errorMessage = "Failed to load employees data. Please try again later."
-                print("Employees Decoding Error: \(networkError)")
             case .authenticationError:
                 errorMessage = "Authentication failed. Please log in again."
             case .serverError(let message):
@@ -1481,7 +1473,6 @@ struct AdminEmployeesView: View {
             }
         } catch {
             errorMessage = "Unexpected error: \(error.localizedDescription)"
-            print("Employees Unexpected Error: \(error)")
         }
         
         isLoading = false
@@ -1775,22 +1766,13 @@ struct AdminEmployeeDetailView: View {
         do {
             let detailed = try await cachedAPIService.getAdminEmployee(id: employee.id, forceRefresh: true)
             await MainActor.run {
-                print("Successfully loaded detailed employee data")
-                print("  ID: \(detailed.id)")
-                print("  Name: \(detailed.fullName)")
-                print("  Phone: \(detailed.phoneNumber ?? "nil")")
-                print("  Address: \(detailed.address ?? "nil")")
-                print("  City: \(detailed.city ?? "nil")")
+                // Successfully loaded detailed employee data
                 
                 detailedEmployee = detailed  // This will trigger the sheet
                 isLoadingDetails = false
             }
         } catch {
-            print("Failed to load detailed employee data: \(error)")
-            print("Error details: \(error.localizedDescription)")
-            if let networkError = error as? NetworkManager.NetworkError {
-                print("Network error: \(networkError)")
-            }
+            // Failed to load detailed employee data
             await MainActor.run {
                 // Use basic data as fallback
                 detailedEmployee = employee  // This will trigger the sheet
@@ -2080,14 +2062,7 @@ struct AdminEmployeeEditView: View {
         self.employee = employee
         self.onSave = onSave
         
-        print("AdminEmployeeEditView init with employee: \(employee.id)")
-        print("  firstName: \(employee.firstName ?? "nil")")
-        print("  lastName: \(employee.lastName ?? "nil")")
-        print("  email: \(employee.email)")
-        print("  phoneNumber: \(employee.phoneNumber ?? "nil")")
-        print("  address: \(employee.address ?? "nil")")
-        print("  city: \(employee.city ?? "nil")")
-        print("  salaryDetail: \(employee.salaryDetail != nil ? "present" : "nil")")
+        // Initialize AdminEmployeeEditView with employee data
         
         _firstName = State(initialValue: employee.firstName ?? "")
         _lastName = State(initialValue: employee.lastName ?? "")
@@ -2514,8 +2489,7 @@ struct AdminEmployeeEditView: View {
             let result = try await cachedAPIService.lookupBankName(accountNumber: accountNumber, country: country)
             bankName = result.bankName
         } catch {
-            print("Bank lookup error: \(error)")
-            // Don't show error to user, just leave bank name empty
+            // Bank lookup failed - don't show error to user, just leave bank name empty
             bankName = ""
         }
         

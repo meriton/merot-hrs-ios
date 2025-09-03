@@ -16,10 +16,10 @@ actor RequestManager {
         let task = Task<Any, Error> {
             do {
                 let result = try await request()
-                await cleanupTask(key: key)
+                cleanupTask(key: key)
                 return result
             } catch {
-                await cleanupTask(key: key)
+                cleanupTask(key: key)
                 throw error
             }
         }

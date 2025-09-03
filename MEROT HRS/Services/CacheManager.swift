@@ -58,20 +58,16 @@ class CacheManager {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(cacheItem)
             memoryCache.setObject(data as NSData, forKey: key as NSString)
-            print("CacheManager: Successfully cached object in memory for key: \(key)")
             
             // Cache to disk
             let fileURL = cacheDirectory.appendingPathComponent("\(key).cache")
             try data.write(to: fileURL)
-            print("CacheManager: Successfully cached object to disk for key: \(key)")
         } catch {
-            print("CacheManager: Error caching object for key \(key): \(error)")
+            // Silent failure for caching
         }
     }
     
     func retrieve<T: Codable>(_ type: T.Type, forKey key: String) -> T? {
-        print("CacheManager: Attempting to retrieve cached data for key: \(key)")
-        
         // Try memory cache first
         if let data = memoryCache.object(forKey: key as NSString) as Data? {
             do {
@@ -79,13 +75,10 @@ class CacheManager {
                 decoder.dateDecodingStrategy = .iso8601
                 let cacheItem = try decoder.decode(CacheItem<T>.self, from: data)
                 if !cacheItem.isExpired {
-                    print("CacheManager: Found valid cached data in memory for key: \(key)")
                     return cacheItem.data
-                } else {
-                    print("CacheManager: Cached data in memory expired for key: \(key)")
                 }
             } catch {
-                print("CacheManager: Error decoding cached data from memory for key \(key): \(error)")
+                // Silent failure for cache retrieval
             }
         }
         
@@ -98,7 +91,6 @@ class CacheManager {
             let cacheItem = try decoder.decode(CacheItem<T>.self, from: data)
             
             if !cacheItem.isExpired {
-                print("CacheManager: Found valid cached data on disk for key: \(key)")
                 // Update memory cache
                 do {
                     let encoder = JSONEncoder()
@@ -106,19 +98,17 @@ class CacheManager {
                     let encodedData = try encoder.encode(cacheItem)
                     memoryCache.setObject(encodedData as NSData, forKey: key as NSString)
                 } catch {
-                    print("CacheManager: Failed to update memory cache: \(error)")
+                    // Silent failure for memory cache update
                 }
                 return cacheItem.data
             } else {
-                print("CacheManager: Cached data on disk expired for key: \(key)")
                 // Remove expired cache
                 try? fileManager.removeItem(at: fileURL)
             }
         } catch {
-            print("CacheManager: Error reading/decoding cached data from disk for key \(key): \(error)")
+            // Silent failure for disk cache retrieval
         }
         
-        print("CacheManager: No valid cached data found for key: \(key)")
         return nil
     }
     

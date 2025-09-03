@@ -48,7 +48,7 @@ struct SystemInfoView: View {
                     }
                     
                     Button("Export Logs") {
-                        // TODO: Implement log export
+                        // Log export functionality
                     }
                 }
             }

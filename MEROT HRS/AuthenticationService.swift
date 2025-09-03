@@ -66,7 +66,7 @@ class AuthenticationService: ObservableObject {
                 responseType: APIResponse<EmptyResponse>.self
             )
         } catch {
-            print("Logout request failed: \(error)")
+            // Logout request failed, but continue with local cleanup
         }
         
         networkManager.clearAuthTokens()

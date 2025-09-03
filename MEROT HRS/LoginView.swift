@@ -97,8 +97,8 @@ struct LoginView: View {
             } message: {
                 Text(authService.errorMessage ?? "An unknown error occurred")
             }
-            .onChange(of: authService.errorMessage) { errorMessage in
-                showingAlert = errorMessage != nil
+            .onChange(of: authService.errorMessage) { _, newValue in
+                showingAlert = newValue != nil
             }
         }
     }

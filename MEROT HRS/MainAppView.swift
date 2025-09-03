@@ -186,6 +186,7 @@ struct EmployeeDashboardView: View {
 // MARK: - Employee Home Tab
 
 struct EmployeeHomeView: View {
+    @EnvironmentObject var authService: AuthenticationService
     @State private var dashboardData: EmployeeDashboardData?
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -343,6 +344,18 @@ struct EmployeeHomeView: View {
                 .padding()
             }
             .navigationTitle("Dashboard")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        Task {
+                            await authService.logout()
+                        }
+                    }) {
+                        Image(systemName: "power")
+                            .foregroundColor(.red)
+                    }
+                }
+            }
             .refreshable {
                 await loadDashboardData()
             }
@@ -419,7 +432,25 @@ struct EmployeeTimeOffView: View {
                     }
                     .padding()
                 } else {
-                    ScrollView {
+                    VStack(spacing: 0) {
+                        // Top bar with title and add button
+                        HStack {
+                            Text("Time Off")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                            Spacer()
+                            Button(action: {
+                                showingNewRequestForm = true
+                            }) {
+                                Image(systemName: "plus")
+                                    .font(.title2)
+                                    .fontWeight(.medium)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                        
+                        ScrollView {
                         LazyVStack(spacing: 20) {
                             // Time Off Balances
                             VStack(alignment: .leading, spacing: 12) {
@@ -443,16 +474,8 @@ struct EmployeeTimeOffView: View {
                             
                             // Recent Requests
                             VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Text("Your Requests")
-                                        .font(.headline)
-                                    Spacer()
-                                    Button("New Request") {
-                                        showingNewRequestForm = true
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.small)
-                                }
+                                Text("Your Requests")
+                                    .font(.headline)
                                 
                                 if timeOffRequests.isEmpty {
                                     Text("No time off requests yet")
@@ -470,10 +493,10 @@ struct EmployeeTimeOffView: View {
                             .shadow(radius: 2)
                         }
                         .padding()
+                        }
                     }
                 }
             }
-            .navigationTitle("Time Off")
             .refreshable {
                 await loadTimeOffData()
             }
@@ -520,7 +543,6 @@ struct EmployeeTimeOffView: View {
                 timeOffRecords = response.data.timeOffRecords
             }
         } catch {
-            print("Failed to load time off records: \(error)")
             errorMessage = "Failed to load time off balances"
         }
     }
@@ -536,7 +558,6 @@ struct EmployeeTimeOffView: View {
                 timeOffRequests = response.data.timeOffRequests
             }
         } catch {
-            print("Failed to load time off requests: \(error)")
             errorMessage = "Failed to load time off requests"
         }
     }
@@ -644,12 +665,31 @@ struct EmployeePaystubsView: View {
 struct StatCard: View {
     let title: String
     let value: String
-    let subtitle: String
+    let subtitle: String?
     let icon: String
     let color: Color
+    let action: (() -> Void)?
+    
+    init(title: String, value: String, subtitle: String, icon: String, color: Color, action: (() -> Void)? = nil) {
+        self.title = title
+        self.value = value
+        self.subtitle = subtitle
+        self.icon = icon
+        self.color = color
+        self.action = action
+    }
+    
+    init(title: String, value: String, icon: String, color: Color, action: @escaping () -> Void) {
+        self.title = title
+        self.value = value
+        self.subtitle = nil
+        self.icon = icon
+        self.color = color
+        self.action = action
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let content = VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: icon)
                     .foregroundColor(color)
@@ -662,18 +702,33 @@ struct StatCard: View {
                 .fontWeight(.bold)
                 .foregroundColor(color)
             
-            VStack(alignment: .leading, spacing: 2) {
+            if let subtitle = subtitle {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            } else {
                 Text(title)
                     .font(.caption)
-                    .foregroundColor(.primary)
-                Text(subtitle)
-                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
         }
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(12)
+        
+        if let action = action {
+            Button(action: action) {
+                content
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            content
+        }
     }
 }
 
@@ -688,13 +743,9 @@ struct TimeOffRequestRow: View {
                     .fontWeight(.medium)
                 
                 if let startDate = request.startDate, let endDate = request.endDate {
-                    Text("\(formatDate(startDate)) - \(formatDate(endDate))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                if let days = request.days {
-                    Text("\(String(format: "%.1f", days)) days")
+                    let formattedDates = formatDateRange(startDate, endDate)
+                    let daysText = request.days != nil ? " • \(Int(request.days!)) day\(Int(request.days!) == 1 ? "" : "s")" : ""
+                    Text("\(formattedDates)\(daysText)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -726,15 +777,63 @@ struct TimeOffRequestRow: View {
         }
     }
     
+    private func parseDate(_ dateString: String) -> Date? {
+        let formatters = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // ISO 8601 with milliseconds and timezone
+            "yyyy-MM-dd'T'HH:mm:ssZ",         // ISO 8601 with timezone
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",      // ISO 8601 with milliseconds, no timezone
+            "yyyy-MM-dd'T'HH:mm:ss",          // ISO 8601 without timezone
+            "yyyy-MM-dd"                      // Date only
+        ]
+        
+        for format in formatters {
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+        }
+        return nil
+    }
+    
     private func formatDate(_ dateString: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        if let date = formatter.date(from: dateString) {
+        if let date = parseDate(dateString) {
             let displayFormatter = DateFormatter()
             displayFormatter.dateStyle = .medium
             return displayFormatter.string(from: date)
         }
         return dateString
+    }
+    
+    private func formatDateRange(_ startDateString: String, _ endDateString: String) -> String {
+        guard let startDate = parseDate(startDateString),
+              let endDate = parseDate(endDateString) else {
+            return "\(startDateString) - \(endDateString)"
+        }
+        
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "MMM d"
+        
+        let calendar = Calendar.current
+        let startFormatted = displayFormatter.string(from: startDate)
+        let endFormatted = displayFormatter.string(from: endDate)
+        
+        // Add year if different from current year
+        let yearFormatter = DateFormatter()
+        yearFormatter.dateFormat = "yyyy"
+        let currentYear = yearFormatter.string(from: Date())
+        let endYear = yearFormatter.string(from: endDate)
+        
+        if calendar.isDate(startDate, inSameDayAs: endDate) {
+            // Same day: "Sep 2nd, 2025"
+            let fullFormatter = DateFormatter()
+            fullFormatter.dateFormat = "MMM d, yyyy"
+            return fullFormatter.string(from: startDate)
+        } else {
+            // Different days: "Sep 2nd - Sep 5th, 2025"
+            let suffix = endYear == currentYear ? "" : ", \(endYear)"
+            return "\(startFormatted) - \(endFormatted)\(suffix)"
+        }
     }
 }
 
@@ -961,20 +1060,19 @@ struct NewTimeOffRequestView: View {
         isSubmitting = true
         errorMessage = nil
         
-        let requestData: [String: Any] = [
-            "time_off_request": [
-                "time_off_record_id": recordId,
-                "start_date": ISO8601DateFormatter().string(from: startDate),
-                "end_date": ISO8601DateFormatter().string(from: endDate),
-                "days": Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 1
-            ]
-        ]
+        let requestData = CreateTimeOffRequestData(
+            timeOffRequest: CreateTimeOffRequest(
+                timeOffRecordId: recordId,
+                startDate: ISO8601DateFormatter().string(from: startDate),
+                endDate: ISO8601DateFormatter().string(from: endDate)
+            )
+        )
         
         do {
-            let _: APIResponse<[String: Any]> = try await NetworkManager.shared.post(
+            let _: APIResponse<EmployeeTimeOffRequestResponse> = try await NetworkManager.shared.post(
                 endpoint: "/employees/time_off_requests",
                 body: requestData,
-                responseType: APIResponse<[String: Any]>.self
+                responseType: APIResponse<EmployeeTimeOffRequestResponse>.self
             )
             
             onRequestCreated()

@@ -284,14 +284,14 @@ struct InvoiceSummaryCard: View {
                 .fontWeight(.semibold)
             
             VStack(spacing: 8) {
-                SummaryRow(label: "Subtotal", amount: invoice.subtotal ?? 0.0)
+                SummaryRow(label: "Subtotal", amount: invoice.subtotal)
                 
                 if let discountAmount = invoice.discountAmount, discountAmount > 0 {
                     SummaryRow(label: "Discount", amount: -discountAmount, isDiscount: true)
                 }
                 
-                if (invoice.taxAmount ?? 0.0) > 0 {
-                    SummaryRow(label: "Tax", amount: invoice.taxAmount ?? 0.0)
+                if invoice.taxAmount > 0 {
+                    SummaryRow(label: "Tax", amount: invoice.taxAmount)
                 }
                 
                 if let lateFee = invoice.lateFee, lateFee > 0 {
@@ -472,18 +472,18 @@ struct InvoiceTotalCard: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text(String(format: "$%.2f", invoice.subtotal ?? 0.0))
+                    Text(String(format: "$%.2f", invoice.subtotal))
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
                 
-                if (invoice.taxAmount ?? 0.0) > 0 {
+                if invoice.taxAmount > 0 {
                     HStack {
                         Text("Tax")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "$%.2f", invoice.taxAmount ?? 0.0))
+                        Text(String(format: "$%.2f", invoice.taxAmount))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }

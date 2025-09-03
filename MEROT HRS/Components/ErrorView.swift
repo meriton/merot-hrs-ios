@@ -44,7 +44,7 @@ struct ErrorView: View {
         ErrorView(message: "Unable to load data. Please check your internet connection.")
         
         ErrorView(message: "Failed to connect to server. Please try again later.") {
-            print("Retry tapped")
+            // Retry action
         }
     }
     .padding()

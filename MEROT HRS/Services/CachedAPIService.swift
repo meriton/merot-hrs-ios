@@ -23,23 +23,18 @@ class CachedAPIService: ObservableObject {
         return try await requestManager.executeRequest(key: requestKey) {
             // Return cached data if available and not forcing refresh
             if !forceRefresh, let cachedData = self.cacheManager.retrieve(AdminDashboardData.self, forKey: cacheKey) {
-                print("CachedAPIService: Returning cached admin dashboard data")
                 return cachedData
             }
             
             // Fetch fresh data
-            print("CachedAPIService: Fetching fresh admin dashboard data (forceRefresh: \(forceRefresh))")
             do {
                 let freshData = try await self.apiService.getAdminDashboard()
-                print("CachedAPIService: Successfully fetched fresh admin dashboard data")
                 
                 // Cache the fresh data
                 self.cacheManager.cache(freshData, forKey: cacheKey, expirationInterval: CacheManager.CacheExpiration.short)
-                print("CachedAPIService: Cached fresh admin dashboard data")
                 
                 return freshData
             } catch {
-                print("CachedAPIService: Error fetching admin dashboard data: \(error)")
                 throw error
             }
         }
