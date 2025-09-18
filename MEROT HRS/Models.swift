@@ -1263,12 +1263,13 @@ struct EmployeePayrollRecord: Codable, Identifiable {
     let nightHours: Double?
     let holidayHours: Double?
     let sundayHours: Double?
+    let country: String?
     let payrollBatch: EmployeePayrollBatch?
     let createdAt: String
     let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, employeeId, grossPay, netPay, overtimeHours, nightHours, holidayHours, sundayHours, payrollBatch, createdAt, updatedAt
+        case id, employeeId, grossPay, netPay, overtimeHours, nightHours, holidayHours, sundayHours, country, payrollBatch, createdAt, updatedAt
     }
 }
 

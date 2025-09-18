@@ -1089,7 +1089,7 @@ struct PaystubRow: View {
                 }
                 
                 if let grossPay = record.grossPay {
-                    Text("Gross: €\(String(format: "%.2f", grossPay))")
+                    Text("Gross: \(formatCurrency(grossPay, for: record.country))")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -1099,7 +1099,7 @@ struct PaystubRow: View {
             
             VStack(alignment: .trailing) {
                 if let netPay = record.netPay {
-                    Text("€\(String(format: "%.2f", netPay))")
+                    Text("\(formatCurrency(netPay, for: record.country))")
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(.green)
@@ -1143,6 +1143,26 @@ struct PaystubRow: View {
         }
         // If it's already a month name or can't be parsed, return as is
         return monthString.capitalized
+    }
+
+    private func formatCurrency(_ amount: Double, for country: String?) -> String {
+        guard let country = country else {
+            return "€\(String(format: "%.2f", amount))"
+        }
+
+        switch country.lowercased() {
+        case "north_macedonia", "macedonia":
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            formatter.minimumFractionDigits = 0
+            formatter.maximumFractionDigits = 0
+            let formattedAmount = formatter.string(from: NSNumber(value: amount)) ?? String(format: "%.0f", amount)
+            return "\(formattedAmount) MKD"
+        case "kosovo":
+            return "€\(String(format: "%.2f", amount))"
+        default:
+            return "€\(String(format: "%.2f", amount))"
+        }
     }
 
     private func pdfTitle() -> String {
