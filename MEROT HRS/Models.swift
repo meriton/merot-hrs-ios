@@ -30,11 +30,22 @@ struct UserProfileWrapperForAPI: Codable {
 struct UserProfileForAPI: Codable {
     let id: Int
     let email: String
-    let user_type: String
-    let full_name: String?
+    let userType: String
+    let firstName: String?
+    let lastName: String?
+    let fullName: String?
     let roles: [String]?
-    let super_admin: Bool?
+    let superAdmin: Bool?
     let employer: Employer?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, email, roles, employer
+        case userType = "user_type"
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case fullName = "full_name"
+        case superAdmin = "super_admin"
+    }
 }
 
 struct Employer: Codable, Identifiable {
@@ -50,8 +61,8 @@ struct Employer: Codable, Identifiable {
     let addressState: String?
     let addressZip: String?
     let addressCountry: String?
-    let createdAt: Date?
-    let updatedAt: Date?
+    let createdAt: String?
+    let updatedAt: String?
     
     enum CodingKeys: String, CodingKey {
         case id, name
@@ -169,13 +180,14 @@ struct APIErrorResponse: Codable {
 struct Employee: Codable, Identifiable {
     let id: Int
     let employeeId: String?
+    let fullName: String?
     let firstName: String?
     let lastName: String?
-    let email: String
+    let email: String?
     let phoneNumber: String?
     let personalEmail: String?
     let department: String?
-    let status: String
+    let status: String?
     let employeeType: String?
     let title: String?
     let location: String?
@@ -191,10 +203,13 @@ struct Employee: Codable, Identifiable {
     let onLeave: String?
     let employment: Employment?
     let salaryDetail: SalaryDetail?
-    let createdAt: Date
-    let updatedAt: Date
+    let createdAt: Date?
+    let updatedAt: Date?
     
-    var fullName: String {
+    var computedFullName: String {
+        if let fullName = fullName, !fullName.isEmpty {
+            return fullName
+        }
         let first = firstName ?? ""
         let last = lastName ?? ""
         return "\(first) \(last)".trimmingCharacters(in: .whitespaces)
@@ -203,6 +218,7 @@ struct Employee: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, email, department, status, title, location, address, city, country, postcode
         case employeeId = "employee_id"
+        case fullName = "full_name"
         case firstName = "first_name"
         case lastName = "last_name"
         case phoneNumber = "phone_number"
@@ -887,24 +903,23 @@ struct TimeOffRequest: Codable, Identifiable {
     let id: Int
     let employeeName: String?
     let employee: Employee?
-    let startDate: Date
-    let endDate: Date
-    let leaveType: String
+    let startDate: String
+    let endDate: String
+    let leaveType: String?
     let reason: String?
     let status: String
-    let approvalStatus: String?
     let days: Int?
     let timeOffRecord: TimeOffRecord?
-    let createdAt: Date
-    let updatedAt: Date
+    let createdAt: String
+    let updatedAt: String
     
     enum CodingKeys: String, CodingKey {
-        case id, reason, status, employee, days
+        case id, reason, employee, days
+        case status = "approval_status"
         case employeeName = "employee_name"
         case startDate = "start_date"
         case endDate = "end_date"
         case leaveType = "leave_type"
-        case approvalStatus = "approval_status"
         case timeOffRecord = "time_off_record"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -1014,14 +1029,27 @@ struct SystemAlert: Codable, Identifiable {
 // MARK: - Missing Response Types
 
 struct EmployerProfileData: Codable {
-    let employer: EmployerData
-    let employer_user: EmployerUserData
-    let profile_stats: ProfileStatsData
+    let user: EmployerProfileUser
     
     enum CodingKeys: String, CodingKey {
-        case employer
-        case employer_user
-        case profile_stats
+        case user
+    }
+}
+
+struct EmployerProfileUser: Codable {
+    let id: Int
+    let email: String
+    let firstName: String?
+    let lastName: String?
+    let userType: String
+    let status: String
+    let employer: EmployerData
+    
+    enum CodingKeys: String, CodingKey {
+        case id, email, status, employer
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case userType = "user_type"
     }
 }
 
@@ -1044,6 +1072,7 @@ struct EmployerData: Codable {
     let total_employees: Int?
     let total_outstanding_amount: Double?
     let total_paid_amount: Double?
+    let profile_stats: ProfileStatsData?
     let created_at: String
     let updated_at: String
 }
@@ -1230,28 +1259,30 @@ struct EmployeePayrollRecord: Codable, Identifiable {
     let employeeId: String?
     let grossPay: Double?
     let netPay: Double?
-    let totalHours: Double?
+    let overtimeHours: Double?
+    let nightHours: Double?
+    let holidayHours: Double?
+    let sundayHours: Double?
     let payrollBatch: EmployeePayrollBatch?
     let createdAt: String
-    
+    let updatedAt: String?
+
     enum CodingKeys: String, CodingKey {
-        case id, grossPay, netPay, totalHours, createdAt
-        case employeeId = "employee_id"
-        case payrollBatch = "payroll_batch"
+        case id, employeeId, grossPay, netPay, overtimeHours, nightHours, holidayHours, sundayHours, payrollBatch, createdAt, updatedAt
     }
 }
 
 struct EmployeePayrollBatch: Codable, Identifiable {
     let id: Int
-    let month: Int
+    let month: String
     let year: Int
-    let payPeriodStart: String?
-    let payPeriodEnd: String?
-    
+    let payDate: String?
+    let workingHours: Int?
+    let period: String?
+    let monthName: String?
+
     enum CodingKeys: String, CodingKey {
-        case id, month, year
-        case payPeriodStart = "pay_period_start"
-        case payPeriodEnd = "pay_period_end"
+        case id, month, year, payDate, workingHours, period, monthName
     }
 }
 
@@ -1300,5 +1331,51 @@ struct CreateTimeOffRequest: Codable {
         case timeOffRecordId = "time_off_record_id"
         case startDate = "start_date"
         case endDate = "end_date"
+    }
+}
+
+// MARK: - Time Tracking Models
+
+struct TimeKeepingRecord: Codable, Identifiable {
+    let id: Int
+    let timeIn: String?
+    let timeOut: String?
+    let hoursWorked: Double?
+    let employeeId: String
+    let createdAt: String
+    let updatedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case timeIn = "time_in"
+        case timeOut = "time_out"
+        case hoursWorked = "hours_worked"
+        case employeeId = "employee_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct ClockInResponse: Codable {
+    let success: Bool
+    let message: String?
+    let data: TimeKeepingRecord?
+}
+
+struct ClockOutResponse: Codable {
+    let success: Bool
+    let message: String?
+    let data: TimeKeepingRecord?
+}
+
+struct ClockStatusResponse: Codable {
+    let success: Bool
+    let clockedIn: Bool
+    let data: TimeKeepingRecord?
+    
+    enum CodingKeys: String, CodingKey {
+        case success
+        case clockedIn = "clocked_in"
+        case data
     }
 }

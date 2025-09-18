@@ -13,6 +13,7 @@ struct MainAppView: View {
     @State private var backgroundOpacity: Double = 1.0
     @State private var showMainContent = false
     @State private var phraseOpacities: [Double] = [0.0, 0.0]
+    @State private var selectedTimeOffRequestId: Int?
     @Environment(\.colorScheme) var colorScheme
     
     private let taglinePhrases = ["Your Team,", "Beyond Borders."]
@@ -137,6 +138,11 @@ struct MainContentView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openTimeOffRequest)) { notification in
+            if notification.userInfo?["requestId"] is Int {
+                // TODO: Navigate to specific time off request
+            }
+        }
     }
 }
 
@@ -188,8 +194,16 @@ struct EmployeeDashboardView: View {
 struct EmployeeHomeView: View {
     @EnvironmentObject var authService: AuthenticationService
     @State private var dashboardData: EmployeeDashboardData?
+    @State private var timeOffRecords: [EmployeeTimeOffRecordBalance] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    
+    // Time tracking state
+    @State private var clockStatus: ClockStatusResponse?
+    @State private var isClockingIn = false
+    @State private var isClockingOut = false
+    @State private var clockErrorMessage: String?
+    @StateObject private var apiService = APIService()
     
     var body: some View {
         NavigationView {
@@ -259,7 +273,7 @@ struct EmployeeHomeView: View {
                         ], spacing: 16) {
                             StatCard(
                                 title: "Time Off Available",
-                                value: "\(data.timeOff.availableDays)",
+                                value: "\(annualPaidLeaveDays)",
                                 subtitle: "days",
                                 icon: "calendar.badge.plus",
                                 color: .green
@@ -274,7 +288,63 @@ struct EmployeeHomeView: View {
                             )
                         }
                         
-                        // Time Tracking (if available)
+                        // Clock In/Out Button
+                        VStack(spacing: 12) {
+                            Button(action: {
+                                Task {
+                                    await handleClockAction()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: isCurrentlyClockedIn ? "clock.badge.checkmark" : "clock")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                    
+                                    Text(isCurrentlyClockedIn ? "Clock Out" : "Clock In")
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                    
+                                    if isClockingIn || isClockingOut {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(
+                                    LinearGradient(
+                                        colors: [
+                                            isCurrentlyClockedIn ? .red : Color.merotBlue,
+                                            isCurrentlyClockedIn ? .red.opacity(0.8) : Color.merotBlue.opacity(0.8)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .cornerRadius(12)
+                            }
+                            .disabled(isClockingIn || isClockingOut)
+                            
+                            // Show current clock status
+                            if let clockStatus = clockStatus, clockStatus.clockedIn, let timeRecord = clockStatus.data, let timeIn = timeRecord.timeIn {
+                                Text("Clocked in since \(formatClockTime(timeIn))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            // Show error message if any
+                            if let clockErrorMessage = clockErrorMessage {
+                                Text(clockErrorMessage)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // Time Tracking Summary (if available)
                         if data.timeTracking.currentlyClockedIn || 
                            data.timeTracking.totalHoursThisWeek != nil ||
                            data.timeTracking.totalHoursThisMonth != nil {
@@ -363,34 +433,161 @@ struct EmployeeHomeView: View {
         .onAppear {
             Task {
                 await loadDashboardData()
+                await loadTimeOffRecords()
             }
         }
+    }
+    
+    // MARK: - Clock In/Out Functions
+    
+    private var isCurrentlyClockedIn: Bool {
+        return clockStatus?.clockedIn == true
+    }
+    
+    private func loadClockStatus() async {
+        do {
+            let response = try await apiService.getClockStatus()
+            await MainActor.run {
+                self.clockStatus = response
+                self.clockErrorMessage = nil
+            }
+        } catch {
+            await MainActor.run {
+                self.clockErrorMessage = "Failed to load clock status"
+            }
+        }
+    }
+    
+    private func handleClockAction() async {
+        clockErrorMessage = nil
+        
+        if isCurrentlyClockedIn {
+            // Clock out
+            isClockingOut = true
+            do {
+                let response = try await apiService.clockOut()
+                await MainActor.run {
+                    if response.success {
+                        // Update local state
+                        self.clockStatus = ClockStatusResponse(success: true, clockedIn: false, data: nil)
+                        // Reload dashboard to update hours
+                        Task {
+                            await loadDashboardData()
+                        }
+                    } else {
+                        self.clockErrorMessage = response.message ?? "Clock out failed"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.clockErrorMessage = "Clock out failed: \(error.localizedDescription)"
+                }
+            }
+            isClockingOut = false
+        } else {
+            // Clock in
+            isClockingIn = true
+            do {
+                let response = try await apiService.clockIn()
+                await MainActor.run {
+                    if response.success, let timeRecord = response.data {
+                        // Update local state
+                        self.clockStatus = ClockStatusResponse(success: true, clockedIn: true, data: timeRecord)
+                        // Reload dashboard to update hours (though clock in doesn't immediately affect hours)
+                        Task {
+                            await loadDashboardData()
+                        }
+                    } else {
+                        self.clockErrorMessage = response.message ?? "Clock in failed"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.clockErrorMessage = "Clock in failed: \(error.localizedDescription)"
+                }
+            }
+            isClockingIn = false
+        }
+    }
+    
+    private func formatClockTime(_ timeString: String) -> String {
+        let formatters = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // ISO 8601 with milliseconds and timezone
+            "yyyy-MM-dd'T'HH:mm:ssZ",         // ISO 8601 with timezone
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",      // ISO 8601 with milliseconds, no timezone
+            "yyyy-MM-dd'T'HH:mm:ss",          // ISO 8601 without timezone
+        ]
+        
+        for format in formatters {
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            if let date = formatter.date(from: timeString) {
+                let displayFormatter = DateFormatter()
+                displayFormatter.dateFormat = "h:mm a"
+                return displayFormatter.string(from: date)
+            }
+        }
+        
+        return timeString
     }
     
     private func loadDashboardData() async {
         isLoading = true
         errorMessage = nil
         
-        do {
-            let response: APIResponse<EmployeeDashboardData> = try await NetworkManager.shared.get(
-                endpoint: "/employees/dashboard",
-                responseType: APIResponse<EmployeeDashboardData>.self
-            )
-            
-            if response.success {
-                dashboardData = response.data
-            } else {
-                errorMessage = response.message ?? "Failed to load dashboard data"
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                do {
+                    let response: APIResponse<EmployeeDashboardData> = try await NetworkManager.shared.get(
+                        endpoint: "/employees/dashboard",
+                        responseType: APIResponse<EmployeeDashboardData>.self
+                    )
+                    
+                    await MainActor.run {
+                        if response.success {
+                            self.dashboardData = response.data
+                        } else {
+                            self.errorMessage = response.message ?? "Failed to load dashboard data"
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        if let networkError = error as? NetworkManager.NetworkError {
+                            self.errorMessage = networkError.localizedDescription
+                        } else {
+                            self.errorMessage = "Network error: \(error.localizedDescription)"
+                        }
+                    }
+                }
             }
-        } catch {
-            if let networkError = error as? NetworkManager.NetworkError {
-                errorMessage = networkError.localizedDescription
-            } else {
-                errorMessage = "Network error: \(error.localizedDescription)"
+            
+            group.addTask {
+                await self.loadClockStatus()
             }
         }
         
         isLoading = false
+    }
+    
+    private var annualPaidLeaveDays: Int {
+        timeOffRecords.first { record in
+            record.leaveType.lowercased() == "annual_leave"
+        }?.balance ?? 0
+    }
+    
+    private func loadTimeOffRecords() async {
+        do {
+            let response: APIResponse<EmployeeTimeOffRecordList> = try await NetworkManager.shared.get(
+                endpoint: "/employees/time_off_records",
+                responseType: APIResponse<EmployeeTimeOffRecordList>.self
+            )
+            
+            if response.success {
+                timeOffRecords = response.data.timeOffRecords
+            }
+        } catch {
+            // Silently fail for time off records - the card will show 0
+        }
     }
 }
 
@@ -877,11 +1074,17 @@ struct PaystubRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                if let batch = record.payrollBatch {
-                    Text("\(monthName(batch.month)) \(batch.year)")
+                if let batch = record.payrollBatch, let period = batch.period {
+                    Text("Paystub: \(period)")
+                        .font(.headline)
+                } else if let batch = record.payrollBatch, let monthName = batch.monthName {
+                    Text("Paystub: \(monthName), \(batch.year)")
+                        .font(.headline)
+                } else if let batch = record.payrollBatch {
+                    Text("Paystub: \(getMonthName(from: batch.month)), \(batch.year)")
                         .font(.headline)
                 } else {
-                    Text("Payroll Record")
+                    Text("Paystub")
                         .font(.headline)
                 }
                 
@@ -932,14 +1135,23 @@ struct PaystubRow: View {
         }
     }
     
-    private func monthName(_ month: Int) -> String {
-        let dateFormatter = DateFormatter()
-        return dateFormatter.monthSymbols[month - 1]
+    private func getMonthName(from monthString: String) -> String {
+        // Try to parse the month string as an integer
+        if let monthInt = Int(monthString), monthInt >= 1, monthInt <= 12 {
+            let dateFormatter = DateFormatter()
+            return dateFormatter.monthSymbols[monthInt - 1]
+        }
+        // If it's already a month name or can't be parsed, return as is
+        return monthString.capitalized
     }
-    
+
     private func pdfTitle() -> String {
-        if let batch = record.payrollBatch {
-            return "Paystub - \(monthName(batch.month)) \(batch.year)"
+        if let batch = record.payrollBatch, let period = batch.period {
+            return "Paystub - \(period)"
+        } else if let batch = record.payrollBatch, let monthName = batch.monthName {
+            return "Paystub - \(monthName), \(batch.year)"
+        } else if let batch = record.payrollBatch {
+            return "Paystub - \(getMonthName(from: batch.month)), \(batch.year)"
         }
         return "Paystub"
     }
